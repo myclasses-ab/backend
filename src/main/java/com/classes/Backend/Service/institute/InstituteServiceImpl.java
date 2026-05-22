@@ -1,0 +1,171 @@
+package com.classes.Backend.Service.institute;
+
+import com.classes.Backend.Domain.institute.Institute;
+import com.classes.Backend.Domain.enums.InstituteType;
+import com.classes.Backend.Domain.enums.OwnershipType;
+import com.classes.Backend.Domain.enums.SubscriptionTier;
+import com.classes.Backend.Repository.institute.InstituteRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
+@RequiredArgsConstructor
+@Service
+public class InstituteServiceImpl implements InstituteService {
+    private final InstituteRepository INSTITUTE_REPOSITORY;
+
+    // ================ SAVE INSTITUTE ===================== //
+    @Override
+    public Institute save(Institute institute) {
+        return this.INSTITUTE_REPOSITORY.save(institute);
+    }
+
+    // ================ SAVE ALL INSTITUTES ===================== //
+    @Override
+    public List<Institute> saveAll(List<Institute> institutes) {
+        return this.INSTITUTE_REPOSITORY.saveAll(institutes);
+    }
+
+    // ================ FIND BY ID ===================== //
+    @Override
+    public Optional<Institute> findById(String identifier) {
+        return this.INSTITUTE_REPOSITORY.findById(identifier);
+    }
+
+    // ================ FIND ALL ===================== //
+    @Override
+    public List<Institute> findAll() {
+        return this.INSTITUTE_REPOSITORY.findAll();
+    }
+
+    // ================ DELETE BY ID ===================== //
+    @Override
+    public void deleteById(String identifier) {
+        if (!this.INSTITUTE_REPOSITORY.existsById(identifier)) {
+            throw new RuntimeException("Institute with identifier '" + identifier + "' not found");
+        }
+        this.INSTITUTE_REPOSITORY.deleteById(identifier);
+    }
+
+    // ================ EXISTS BY ID ===================== //
+    @Override
+    public boolean existsById(String identifier) {
+        return this.INSTITUTE_REPOSITORY.existsById(identifier);
+    }
+
+    // ================ FIND BY SLUG ===================== //
+    @Override
+    public Optional<Institute> findBySlug(String slug) {
+        return this.INSTITUTE_REPOSITORY.findBySlug(slug);
+    }
+
+    // ================ FIND BY TYPE ===================== //
+    @Override
+    public List<Institute> findByType(InstituteType type) {
+        return this.INSTITUTE_REPOSITORY.findByType(type);
+    }
+
+    // ================ FIND BY OWNERSHIP TYPE ===================== //
+    @Override
+    public List<Institute> findByOwnershipType(OwnershipType ownershipType) {
+        return this.INSTITUTE_REPOSITORY.findByOwnershipType(ownershipType);
+    }
+
+    // ================ FIND BY SUBSCRIPTION TIER ===================== //
+    @Override
+    public List<Institute> findBySubscriptionTier(SubscriptionTier subscriptionTier) {
+        return this.INSTITUTE_REPOSITORY.findBySubscriptionTier(subscriptionTier);
+    }
+
+    // ================ FIND BY IS VERIFIED TRUE ===================== //
+    @Override
+    public List<Institute> findByIsVerifiedTrue() {
+        return this.INSTITUTE_REPOSITORY.findByIsVerifiedTrue();
+    }
+
+    // ================ FIND BY IS FEATURED TRUE ===================== //
+    @Override
+    public List<Institute> findByIsFeaturedTrue() {
+        return this.INSTITUTE_REPOSITORY.findByIsFeaturedTrue();
+    }
+
+    // ================ FIND BY IS ACTIVE TRUE ===================== //
+    @Override
+    public List<Institute> findByIsActiveTrue() {
+        return this.INSTITUTE_REPOSITORY.findByIsActiveTrue();
+    }
+
+    // ================ FIND BY PARENT INSTITUTE IDENTIFIER ===================== //
+    @Override
+    public List<Institute> findByParentInstituteIdentifier(String parentInstituteIdentifier) {
+        return this.INSTITUTE_REPOSITORY.findByParentInstituteIdentifier(parentInstituteIdentifier);
+    }
+
+    // ================ SEARCH INSTITUTES ===================== //
+    @Override
+    public List<Institute> searchInstitutes(String query, String cityIdentifier, String cityName, BigDecimal minFee, BigDecimal maxFee, BigDecimal minRating, InstituteType type, SubscriptionTier subscriptionTier, Boolean isVerified, Boolean isFeatured, Boolean hasHostel, String sortBy, String sortOrder) {
+        List<Institute> results = this.INSTITUTE_REPOSITORY.searchInstitutes(
+                query, cityIdentifier, cityName, minFee, maxFee, minRating,
+                type != null ? type.name() : null,
+                subscriptionTier != null ? subscriptionTier.name() : null,
+                isVerified, isFeatured, hasHostel
+        );
+
+        results.sort((a, b) -> {
+            int comparison = 0;
+            switch (sortBy != null ? sortBy : "relevance") {
+                case "rating":
+                    comparison = compareBigDecimal(a.getAverageRating(), b.getAverageRating());
+                    break;
+                case "name":
+                    comparison = compareStrings(a.getName(), b.getName());
+                    break;
+                case "popularity":
+                    comparison = compareIntegers(a.getTotalReviews(), b.getTotalReviews());
+                    break;
+                case "experience":
+                    comparison = compareIntegers(a.getYearsOfExperience(), b.getYearsOfExperience());
+                    break;
+                case "fees":
+                    comparison = 0;
+                    break;
+                default:
+                    if (Boolean.TRUE.equals(a.getIsFeatured()) != Boolean.TRUE.equals(b.getIsFeatured())) {
+                        return Boolean.TRUE.equals(a.getIsFeatured()) ? -1 : 1;
+                    }
+                    if (Boolean.TRUE.equals(a.getIsVerified()) != Boolean.TRUE.equals(b.getIsVerified())) {
+                        return Boolean.TRUE.equals(a.getIsVerified()) ? -1 : 1;
+                    }
+                    comparison = compareBigDecimal(a.getAverageRating(), b.getAverageRating());
+                    break;
+            }
+            return "asc".equalsIgnoreCase(sortOrder) ? -comparison : comparison;
+        });
+
+        return results;
+    }
+
+    private int compareBigDecimal(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return -1;
+        if (b == null) return 1;
+        return a.compareTo(b);
+    }
+
+    private int compareStrings(String a, String b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return -1;
+        if (b == null) return 1;
+        return a.compareToIgnoreCase(b);
+    }
+
+    private int compareIntegers(Integer a, Integer b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return -1;
+        if (b == null) return 1;
+        return a.compareTo(b);
+    }
+}
