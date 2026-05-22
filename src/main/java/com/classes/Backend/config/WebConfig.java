@@ -20,7 +20,7 @@ public class WebConfig {
                 "http://localhost:3002",
                 "http://localhost:5173",
                 "https://myclasses-console.web.app",
-                "https://wifi-cupped-purify.ngrok-free.dev"
+                "https://frontend-two-gray-7k7ncc9ipq.vercel.app"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));

@@ -39,7 +39,7 @@ public class GlobalCorsFilter extends OncePerRequestFilter {
     private boolean isAllowedOrigin(String origin) {
         return origin.startsWith("http://localhost:")
                 || origin.startsWith("https://localhost:")
-                || origin.contains("ngrok-free.dev")
-                || origin.endsWith(".web.app");
+                || origin.endsWith(".web.app")
+                || origin.endsWith(".vercel.app");
     }
 }
