@@ -28,7 +28,7 @@ public class OpenApiConfig {
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))
                 .servers(List.of(
-                        new Server().url("http://localhost:8080").description("Local Development Server"),
+                        new Server().url("http://https://orca-app-s8tpj.ondigitalocean.app/").description("Local Development Server"),
                         new Server().url("https://api.myclasses.com").description("Production Server")));
     }
 }
