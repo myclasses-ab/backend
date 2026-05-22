@@ -1,0 +1,27 @@
+# Git
+.git/
+.gitignore
+
+# Build output (don't copy local target/)
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Environment / Secrets
+.env
+*.env
+
+# DO spec (not needed inside image)
+.do/
+
+# Docs
+HELP.md
+readme.md
+README.md
+*.md
