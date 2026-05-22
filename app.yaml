@@ -1,0 +1,78 @@
+# Digital Ocean App Platform Specification
+# Place this at the repo root (myclasses-ab/backend/app.yaml)
+# Import via DO UI: Apps → Create App → Upload app spec
+# Or use doctl: doctl apps create --spec app.yaml
+
+name: myclasses-backend
+region: blr
+
+services:
+  - name: backend
+    github:
+      repo: myclasses-ab/backend
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /swagger-ui.html
+      port: 8080
+      initial_delay_seconds: 45
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    envs:
+      # --- Server ---
+      - key: SERVER_PORT
+        value: "8080"
+
+      # --- Database (Digital Ocean Managed PostgreSQL) ---
+      # NOTE: Replace PASSWORD below via DO UI Secrets, or use doctl
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://db-postgresql-blr1-97829-do-user-37647391-0.k.db.ondigitalocean.com:25060/defaultdb?sslmode=require
+      - key: SPRING_DATASOURCE_USERNAME
+        value: doadmin
+      - key: SPRING_DATASOURCE_PASSWORD
+        value: REPLACE_WITH_ACTUAL_PASSWORD
+        type: SECRET
+      - key: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+        value: org.postgresql.Driver
+
+      # --- JPA / Hibernate ---
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: update
+      - key: SPRING_JPA_SHOW_SQL
+        value: "false"
+      - key: SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL
+        value: "false"
+      - key: SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT
+        value: org.hibernate.dialect.PostgreSQLDialect
+
+      # --- JWT ---
+      - key: JWT_SECRET
+        value: IPh0QiYq8RN+40oPeT2Yy6jxTuewduD/DWUCnWF5Dcw=
+        type: SECRET
+      - key: JWT_EXPIRATION
+        value: "86400000"
+
+      # --- AWS S3 ---
+      # NOTE: Replace with your actual AWS credentials
+      - key: AWS_S3_BUCKET_NAME
+        value: myclassesimages
+      - key: AWS_S3_REGION
+        value: ap-south-1
+      - key: AWS_ACCESS_KEY
+        value: REPLACE_WITH_AWS_ACCESS_KEY
+        type: SECRET
+      - key: AWS_SECRET_KEY
+        value: REPLACE_WITH_AWS_SECRET_KEY
+        type: SECRET
+
+      # --- File Upload ---
+      - key: SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE
+        value: 10MB
+      - key: SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE
+        value: 10MB
