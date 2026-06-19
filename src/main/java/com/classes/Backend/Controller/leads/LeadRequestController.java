@@ -1,17 +1,24 @@
 package com.classes.Backend.Controller.leads;
 
-import com.classes.Backend.Domain.enums.LeadRequestStatus;
-import com.classes.Backend.Domain.leads.LeadRequest;
-import com.classes.Backend.dto.credits.CreateLeadRequest;
-import com.classes.Backend.dto.credits.UpdateLeadRequestStatus;
-import com.classes.Backend.Service.leads.LeadRequestServiceImpl;
-import lombok.RequiredArgsConstructor;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-import java.util.Map;
+import com.classes.Backend.Domain.leads.LeadRequest;
+import com.classes.Backend.Service.leads.LeadRequestServiceImpl;
+import com.classes.Backend.dto.credits.CreateLeadRequest;
+import com.classes.Backend.dto.credits.UpdateLeadRequestStatus;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
@@ -54,12 +61,12 @@ public class LeadRequestController {
     public ResponseEntity<?> updateLeadRequestStatus(@PathVariable String identifier, @RequestBody UpdateLeadRequestStatus request) {
         try {
             LeadRequest updated;
-            if (request.getStatus() == LeadRequestStatus.APPROVED) {
-                updated = LEAD_REQUEST_SERVICE_IMPL.approveRequest(identifier, request.getAdminNotes());
-            } else if (request.getStatus() == LeadRequestStatus.REJECTED) {
-                updated = LEAD_REQUEST_SERVICE_IMPL.rejectRequest(identifier, request.getAdminNotes());
-            } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid status transition"));
+            switch (request.getStatus()) {
+                case APPROVED -> updated = LEAD_REQUEST_SERVICE_IMPL.approveRequest(identifier, request.getAdminNotes());
+                case REJECTED -> updated = LEAD_REQUEST_SERVICE_IMPL.rejectRequest(identifier, request.getAdminNotes());
+                default -> {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid status transition"));
+                }
             }
             return ResponseEntity.ok(updated);
         } catch (IllegalStateException e) {

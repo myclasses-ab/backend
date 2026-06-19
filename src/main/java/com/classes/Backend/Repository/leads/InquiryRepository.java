@@ -4,11 +4,9 @@ import com.classes.Backend.Domain.leads.Inquiry;
 import com.classes.Backend.Domain.enums.InquirySource;
 import com.classes.Backend.Domain.enums.InquiryStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Repository
 public interface InquiryRepository extends JpaRepository<Inquiry, String> {
     List<Inquiry> findByInstituteIdentifier(String instituteIdentifier);
     List<Inquiry> findByBranchIdentifier(String branchIdentifier);
