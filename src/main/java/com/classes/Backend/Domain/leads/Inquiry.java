@@ -74,6 +74,15 @@ public class Inquiry {
     @Column(name = "utm_campaign", length = 200)
     private String utmCampaign;
 
+    @Column(name = "contact_unlocked")
+    private Boolean contactUnlocked = false;
+
+    @Column(name = "unlocked_at")
+    private LocalDateTime unlockedAt;
+
+    @Column(name = "unlocked_by")
+    private String unlockedBy;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

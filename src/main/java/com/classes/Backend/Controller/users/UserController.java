@@ -145,34 +145,4 @@ public class UserController {
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
-    // ================ GET ALL STUDENT LEADS ===================== //
-    @GetMapping("/leads")
-    public ResponseEntity<?> getAllStudentLeads(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String city,
-            @RequestParam(required = false) String exam) {
-        List<User> students = this.USER_SERVICE_IMPL.findByRole(UserRole.STUDENT);
-
-        if (search != null && !search.isBlank()) {
-            String s = search.toLowerCase();
-            students = students.stream()
-                    .filter(u -> (u.getPhone() != null && u.getPhone().contains(s))
-                            || (u.getFullName() != null && u.getFullName().toLowerCase().contains(s)))
-                    .toList();
-        }
-
-        if (city != null && !city.isBlank()) {
-            students = students.stream()
-                    .filter(u -> u.getSearchedCities() != null && u.getSearchedCities().contains(city))
-                    .toList();
-        }
-
-        if (exam != null && !exam.isBlank()) {
-            students = students.stream()
-                    .filter(u -> u.getSearchedExams() != null && u.getSearchedExams().contains(exam))
-                    .toList();
-        }
-
-        return new ResponseEntity<>(students, HttpStatus.OK);
-    }
 }

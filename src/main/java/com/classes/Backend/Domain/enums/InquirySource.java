@@ -5,5 +5,6 @@ public enum InquirySource {
     COURSE_PAGE,
     CHAT,
     CALLBACK_REQUEST,
-    DIRECT
+    DIRECT,
+    BOOK_DEMO
 }
