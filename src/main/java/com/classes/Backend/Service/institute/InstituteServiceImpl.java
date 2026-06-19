@@ -1,21 +1,26 @@
 package com.classes.Backend.Service.institute;
 
 import com.classes.Backend.Domain.institute.Institute;
+import com.classes.Backend.Domain.institute.InstituteFacility;
 import com.classes.Backend.Domain.enums.InstituteType;
 import com.classes.Backend.Domain.enums.OwnershipType;
 import com.classes.Backend.Domain.enums.SubscriptionTier;
+import com.classes.Backend.Repository.institute.InstituteFacilityRepository;
 import com.classes.Backend.Repository.institute.InstituteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
 public class InstituteServiceImpl implements InstituteService {
     private final InstituteRepository INSTITUTE_REPOSITORY;
+    private final InstituteFacilityRepository INSTITUTE_FACILITY_REPOSITORY;
 
     // ================ SAVE INSTITUTE ===================== //
     @Override
@@ -113,6 +118,17 @@ public class InstituteServiceImpl implements InstituteService {
                 subscriptionTier != null ? subscriptionTier.name() : null,
                 isVerified, isFeatured, hasHostel
         );
+
+        if (!results.isEmpty()) {
+            List<String> instituteIdentifiers = results.stream()
+                    .map(Institute::getIdentifier)
+                    .toList();
+            List<InstituteFacility> facilities = this.INSTITUTE_FACILITY_REPOSITORY
+                    .findByInstituteIdentifierIn(instituteIdentifiers);
+            Map<String, InstituteFacility> facilityByInstitute = facilities.stream()
+                    .collect(Collectors.toMap(InstituteFacility::getInstituteIdentifier, f -> f, (a, b) -> a));
+            results.forEach(institute -> institute.setFacilities(facilityByInstitute.get(institute.getIdentifier())));
+        }
 
         results.sort((a, b) -> {
             int comparison = 0;

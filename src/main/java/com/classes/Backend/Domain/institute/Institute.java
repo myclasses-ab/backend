@@ -110,6 +110,9 @@ public class Institute {
     @Column(name = "created_by")
     private String createdBy;
 
+    @Transient
+    private InstituteFacility facilities;
+
     @PrePersist
     protected void onCreate() {
         // Auto-generate UUID identifier if not set (safety net)
