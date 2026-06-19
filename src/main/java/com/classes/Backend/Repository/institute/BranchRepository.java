@@ -11,5 +11,4 @@ public interface BranchRepository extends JpaRepository<Branch, String> {
     List<Branch> findByCityIdentifier(String cityIdentifier);
     Optional<Branch> findByInstituteIdentifierAndIsMainBranchTrue(String instituteIdentifier);
     List<Branch> findByIsOnlineOnlyTrue();
-    List<Branch> findByIsActiveTrue();
 }

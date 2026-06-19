@@ -33,11 +33,8 @@ public class Branch {
     @Column(name = "is_online_only")
     private Boolean isOnlineOnly = false;
 
-    @Column(name = "address_line1", length = 500)
-    private String addressLine1;
-
-    @Column(name = "address_line2", length = 500)
-    private String addressLine2;
+    @Column(name = "address", length = 1000)
+    private String address;
 
     @Column(name = "landmark", length = 300)
     private String landmark;
@@ -69,15 +66,6 @@ public class Branch {
     @Column(name = "email", length = 255)
     private String email;
 
-    @Column(name = "total_area_sqft")
-    private Integer totalAreaSqft;
-
-    @Column(name = "total_classrooms")
-    private Integer totalClassrooms;
-
-    @Column(name = "seating_capacity")
-    private Integer seatingCapacity;
-
     @Column(name = "operating_hours_start")
     private LocalTime operatingHoursStart;
 
@@ -86,9 +74,6 @@ public class Branch {
 
     @Column(name = "operating_days", length = 100)
     private String operatingDays;
-
-    @Column(name = "is_active")
-    private Boolean isActive = true;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

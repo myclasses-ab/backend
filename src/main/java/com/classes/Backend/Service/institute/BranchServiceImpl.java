@@ -75,10 +75,4 @@ public class BranchServiceImpl implements BranchService {
     public List<Branch> findByIsOnlineOnlyTrue() {
         return this.BRANCH_REPOSITORY.findByIsOnlineOnlyTrue();
     }
-
-    // ================ FIND BY IS ACTIVE TRUE ===================== //
-    @Override
-    public List<Branch> findByIsActiveTrue() {
-        return this.BRANCH_REPOSITORY.findByIsActiveTrue();
-    }
 }

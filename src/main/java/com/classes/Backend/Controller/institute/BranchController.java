@@ -82,9 +82,4 @@ public class BranchController {
         return new ResponseEntity<>(this.BRANCH_SERVICE_IMPL.findByIsOnlineOnlyTrue(), HttpStatus.OK);
     }
 
-    // ================ FIND ACTIVE BRANCHES ===================== //
-    @GetMapping("/active")
-    public ResponseEntity<?> findByIsActiveTrue() {
-        return new ResponseEntity<>(this.BRANCH_SERVICE_IMPL.findByIsActiveTrue(), HttpStatus.OK);
-    }
 }

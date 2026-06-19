@@ -19,5 +19,4 @@ public interface BranchService {
     List<Branch> findByCityIdentifier(String cityIdentifier);
     Optional<Branch> findByInstituteIdentifierAndIsMainBranchTrue(String instituteIdentifier);
     List<Branch> findByIsOnlineOnlyTrue();
-    List<Branch> findByIsActiveTrue();
 }
