@@ -76,9 +76,4 @@ public class InstituteCourseController {
         return new ResponseEntity<>(this.INSTITUTE_COURSE_SERVICE_IMPL.findByAdmissionOpenTrue(), HttpStatus.OK);
     }
 
-    // ================ FIND ACTIVE INSTITUTE COURSES ===================== //
-    @GetMapping("/active")
-    public ResponseEntity<?> findByIsActiveTrue() {
-        return new ResponseEntity<>(this.INSTITUTE_COURSE_SERVICE_IMPL.findByIsActiveTrue(), HttpStatus.OK);
-    }
 }

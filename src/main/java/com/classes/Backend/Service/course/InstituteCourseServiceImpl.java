@@ -70,9 +70,4 @@ public class InstituteCourseServiceImpl implements InstituteCourseService {
         return this.INSTITUTE_COURSE_REPOSITORY.findByAdmissionOpenTrue();
     }
 
-    // ================ FIND BY IS ACTIVE TRUE ===================== //
-    @Override
-    public List<InstituteCourse> findByIsActiveTrue() {
-        return this.INSTITUTE_COURSE_REPOSITORY.findByIsActiveTrue();
-    }
 }

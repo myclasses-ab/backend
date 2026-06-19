@@ -9,5 +9,4 @@ public interface InstituteCourseRepository extends JpaRepository<InstituteCourse
     List<InstituteCourse> findByInstituteIdentifier(String instituteIdentifier);
     List<InstituteCourse> findByBranchIdentifier(String branchIdentifier);
     List<InstituteCourse> findByAdmissionOpenTrue();
-    List<InstituteCourse> findByIsActiveTrue();
 }

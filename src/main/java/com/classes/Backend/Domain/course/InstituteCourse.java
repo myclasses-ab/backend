@@ -29,14 +29,8 @@ public class InstituteCourse {
     @Column(name = "custom_name", length = 300)
     private String customName;
 
-    @Column(name = "fee_min", precision = 12, scale = 2)
-    private BigDecimal feeMin;
-
-    @Column(name = "fee_max", precision = 12, scale = 2)
-    private BigDecimal feeMax;
-
-    @Column(name = "fee_description", columnDefinition = "TEXT")
-    private String feeDescription;
+    @Column(name = "fee", precision = 12, scale = 2)
+    private BigDecimal fee;
 
     @Column(name = "scholarship_available")
     private Boolean scholarshipAvailable = false;
@@ -53,14 +47,8 @@ public class InstituteCourse {
     @Column(name = "test_series_included")
     private Boolean testSeriesIncluded = true;
 
-    @Column(name = "online_classes_available")
-    private Boolean onlineClassesAvailable = false;
-
     @Column(name = "recorded_lectures_available")
     private Boolean recordedLecturesAvailable = false;
-
-    @Column(name = "is_active")
-    private Boolean isActive = true;
 
     @Column(name = "admission_open")
     private Boolean admissionOpen = true;

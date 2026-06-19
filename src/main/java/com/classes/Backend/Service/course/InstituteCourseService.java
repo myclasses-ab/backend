@@ -18,5 +18,4 @@ public interface InstituteCourseService {
     List<InstituteCourse> findByInstituteIdentifier(String instituteIdentifier);
     List<InstituteCourse> findByBranchIdentifier(String branchIdentifier);
     List<InstituteCourse> findByAdmissionOpenTrue();
-    List<InstituteCourse> findByIsActiveTrue();
 }
