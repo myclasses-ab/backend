@@ -1,5 +1,6 @@
 package com.classes.Backend.Domain.institute;
 
+import com.classes.Backend.Domain.course.InstituteCourse;
 import com.classes.Backend.Domain.enums.InstituteType;
 import com.classes.Backend.Domain.enums.OwnershipType;
 import com.classes.Backend.Domain.enums.SubscriptionTier;
@@ -10,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -112,6 +114,9 @@ public class Institute {
 
     @Transient
     private InstituteFacility facilities;
+
+    @Transient
+    private List<InstituteCourse> matchingCourses;
 
     @PrePersist
     protected void onCreate() {

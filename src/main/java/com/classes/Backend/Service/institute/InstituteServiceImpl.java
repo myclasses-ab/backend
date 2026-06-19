@@ -1,10 +1,12 @@
 package com.classes.Backend.Service.institute;
 
+import com.classes.Backend.Domain.course.InstituteCourse;
 import com.classes.Backend.Domain.institute.Institute;
 import com.classes.Backend.Domain.institute.InstituteFacility;
 import com.classes.Backend.Domain.enums.InstituteType;
 import com.classes.Backend.Domain.enums.OwnershipType;
 import com.classes.Backend.Domain.enums.SubscriptionTier;
+import com.classes.Backend.Repository.course.InstituteCourseRepository;
 import com.classes.Backend.Repository.institute.InstituteFacilityRepository;
 import com.classes.Backend.Repository.institute.InstituteRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.stream.Collectors;
 public class InstituteServiceImpl implements InstituteService {
     private final InstituteRepository INSTITUTE_REPOSITORY;
     private final InstituteFacilityRepository INSTITUTE_FACILITY_REPOSITORY;
+    private final InstituteCourseRepository INSTITUTE_COURSE_REPOSITORY;
 
     // ================ SAVE INSTITUTE ===================== //
     @Override
@@ -128,6 +131,12 @@ public class InstituteServiceImpl implements InstituteService {
             Map<String, InstituteFacility> facilityByInstitute = facilities.stream()
                     .collect(Collectors.toMap(InstituteFacility::getInstituteIdentifier, f -> f, (a, b) -> a));
             results.forEach(institute -> institute.setFacilities(facilityByInstitute.get(institute.getIdentifier())));
+
+            List<InstituteCourse> matchingCourses = this.INSTITUTE_COURSE_REPOSITORY
+                    .findMatchingCourses(instituteIdentifiers, query);
+            Map<String, List<InstituteCourse>> matchingCoursesByInstitute = matchingCourses.stream()
+                    .collect(Collectors.groupingBy(InstituteCourse::getInstituteIdentifier));
+            results.forEach(institute -> institute.setMatchingCourses(matchingCoursesByInstitute.get(institute.getIdentifier())));
         }
 
         results.sort((a, b) -> {
