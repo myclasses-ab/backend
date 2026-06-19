@@ -64,24 +64,6 @@ public class FacultyController {
         return new ResponseEntity<>(this.FACULTY_SERVICE_IMPL.findByInstituteIdentifier(instituteIdentifier), HttpStatus.OK);
     }
 
-    // ================ FIND IIT/IIM BACKGROUND FACULTY ===================== //
-    @GetMapping("/iit-iim-background")
-    public ResponseEntity<?> findByIitIimBackgroundTrue() {
-        return new ResponseEntity<>(this.FACULTY_SERVICE_IMPL.findByIitIimBackgroundTrue(), HttpStatus.OK);
-    }
-
-    // ================ FIND NIT BACKGROUND FACULTY ===================== //
-    @GetMapping("/nit-background")
-    public ResponseEntity<?> findByNitBackgroundTrue() {
-        return new ResponseEntity<>(this.FACULTY_SERVICE_IMPL.findByNitBackgroundTrue(), HttpStatus.OK);
-    }
-
-    // ================ FIND ACTIVE FACULTY ===================== //
-    @GetMapping("/active")
-    public ResponseEntity<?> findByIsActiveTrue() {
-        return new ResponseEntity<>(this.FACULTY_SERVICE_IMPL.findByIsActiveTrue(), HttpStatus.OK);
-    }
-
     // ================ FIND BY EXPERIENCE YEARS GREATER THAN ===================== //
     @GetMapping("/experience-greater-than/{years}")
     public ResponseEntity<?> findByExperienceYearsGreaterThan(@PathVariable Integer years) {

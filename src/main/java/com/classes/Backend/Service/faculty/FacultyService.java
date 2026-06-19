@@ -16,8 +16,5 @@ public interface FacultyService {
 
     // ================ CUSTOM FINDER METHODS ===================== //
     List<Faculty> findByInstituteIdentifier(String instituteIdentifier);
-    List<Faculty> findByIitIimBackgroundTrue();
-    List<Faculty> findByNitBackgroundTrue();
-    List<Faculty> findByIsActiveTrue();
     List<Faculty> findByExperienceYearsGreaterThan(Integer years);
 }

@@ -58,24 +58,6 @@ public class FacultyServiceImpl implements FacultyService {
         return this.FACULTY_REPOSITORY.findByInstituteIdentifier(instituteIdentifier);
     }
 
-    // ================ FIND BY IIT IIM BACKGROUND TRUE ===================== //
-    @Override
-    public List<Faculty> findByIitIimBackgroundTrue() {
-        return this.FACULTY_REPOSITORY.findByIitIimBackgroundTrue();
-    }
-
-    // ================ FIND BY NIT BACKGROUND TRUE ===================== //
-    @Override
-    public List<Faculty> findByNitBackgroundTrue() {
-        return this.FACULTY_REPOSITORY.findByNitBackgroundTrue();
-    }
-
-    // ================ FIND BY IS ACTIVE TRUE ===================== //
-    @Override
-    public List<Faculty> findByIsActiveTrue() {
-        return this.FACULTY_REPOSITORY.findByIsActiveTrue();
-    }
-
     // ================ FIND BY EXPERIENCE YEARS GREATER THAN ===================== //
     @Override
     public List<Faculty> findByExperienceYearsGreaterThan(Integer years) {

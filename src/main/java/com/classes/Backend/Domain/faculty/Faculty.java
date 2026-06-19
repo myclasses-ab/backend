@@ -39,29 +39,8 @@ public class Faculty {
     @Column(name = "experience_years")
     private Integer experienceYears;
 
-    @Column(name = "bio", columnDefinition = "TEXT")
-    private String bio;
-
-    @Column(name = "specialization", columnDefinition = "TEXT")
-    private String specialization;
-
-    @Column(name = "iit_iim_background")
-    private Boolean iitIimBackground = false;
-
-    @Column(name = "nit_background")
-    private Boolean nitBackground = false;
-
-    @Column(name = "achievements", columnDefinition = "TEXT")
-    private String achievements;
-
-    @Column(name = "former_institutes", columnDefinition = "TEXT")
-    private String formerInstitutes;
-
     @Column(name = "student_rating", precision = 3, scale = 2)
     private BigDecimal studentRating;
-
-    @Column(name = "is_active")
-    private Boolean isActive = true;
 
     @Column(name = "display_order")
     private Integer displayOrder;

@@ -7,8 +7,5 @@ import java.util.List;
 
 public interface FacultyRepository extends JpaRepository<Faculty, String> {
     List<Faculty> findByInstituteIdentifier(String instituteIdentifier);
-    List<Faculty> findByIitIimBackgroundTrue();
-    List<Faculty> findByNitBackgroundTrue();
-    List<Faculty> findByIsActiveTrue();
     List<Faculty> findByExperienceYearsGreaterThan(Integer years);
 }
