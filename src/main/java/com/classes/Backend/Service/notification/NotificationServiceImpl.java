@@ -70,4 +70,13 @@ public class NotificationServiceImpl implements NotificationService {
     public List<Notification> findByType(NotificationType type) {
         return this.NOTIFICATION_REPOSITORY.findByType(type);
     }
+
+    // ================ MARK AS READ ===================== //
+    @Override
+    public Notification markAsRead(String identifier) {
+        Notification notification = this.NOTIFICATION_REPOSITORY.findById(identifier)
+                .orElseThrow(() -> new RuntimeException("Notification with identifier '" + identifier + "' not found"));
+        notification.setIsRead(true);
+        return this.NOTIFICATION_REPOSITORY.save(notification);
+    }
 }

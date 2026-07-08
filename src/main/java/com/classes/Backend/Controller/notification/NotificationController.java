@@ -76,4 +76,10 @@ public class NotificationController {
     public ResponseEntity<?> findByType(@PathVariable NotificationType type) {
         return new ResponseEntity<>(this.NOTIFICATION_SERVICE_IMPL.findByType(type), HttpStatus.OK);
     }
+
+    // ================ MARK AS READ ===================== //
+    @PatchMapping("/{identifier}/read")
+    public ResponseEntity<?> markAsRead(@PathVariable String identifier) {
+        return new ResponseEntity<>(this.NOTIFICATION_SERVICE_IMPL.markAsRead(identifier), HttpStatus.OK);
+    }
 }

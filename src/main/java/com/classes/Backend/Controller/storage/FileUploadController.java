@@ -23,6 +23,7 @@ public class FileUploadController {
     private static final String FOLDER_INSTITUTE_LOGO = "instituteLogo";
     private static final String FOLDER_INSTITUTE_BANNER = "instituteBanner";
     private static final String FOLDER_FACULTY_IMAGE = "facultyImage";
+    private static final String FOLDER_STUDENT_IMAGE = "studentImage";
 
     /**
      * Upload or replace institute logo.
@@ -106,8 +107,35 @@ public class FileUploadController {
     }
 
     /**
+     * Upload or replace student image.
+     * Uses deterministic naming: studentImage/{resultIdentifier}_image.{ext}
+     * If an image already exists for this result, it will be replaced.
+     */
+    @PostMapping("/student")
+    public ResponseEntity<?> uploadStudentImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("resultIdentifier") String resultIdentifier,
+            @RequestParam(value = "oldImageUrl", required = false) String oldImageUrl
+    ) {
+        log.info("Upload student image request. resultIdentifier={}, fileName={}, fileSize={}, hasOldUrl={}",
+                resultIdentifier, file.getOriginalFilename(), file.getSize(), oldImageUrl != null);
+
+        // Delete old image if provided - this ensures clean replacement
+        if (oldImageUrl != null && !oldImageUrl.isEmpty()) {
+            try {
+                S3_SERVICE.deleteFile(oldImageUrl);
+                log.info("Deleted old student image: {}", oldImageUrl);
+            } catch (Exception e) {
+                log.warn("Failed to delete old student image (may not exist): {}", oldImageUrl);
+            }
+        }
+
+        return handleUpload(file, FOLDER_STUDENT_IMAGE, resultIdentifier);
+    }
+
+    /**
      * Generic file upload endpoint.
-     * For resource-specific uploads (logo/banner/faculty), use the dedicated endpoints above.
+     * For resource-specific uploads (logo/banner/faculty/student), use the dedicated endpoints above.
      */
     @PostMapping
     public ResponseEntity<?> uploadFile(
@@ -218,6 +246,7 @@ public class FileUploadController {
             case "instituteLogo" -> "logo";
             case "instituteBanner" -> "banner";
             case "facultyImage" -> "image";
+            case "studentImage" -> "image";
             default -> null;
         };
     }

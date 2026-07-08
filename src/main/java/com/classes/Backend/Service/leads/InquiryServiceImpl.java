@@ -5,9 +5,17 @@ import com.classes.Backend.Domain.leads.Inquiry;
 import com.classes.Backend.Domain.enums.CreditTransactionType;
 import com.classes.Backend.Domain.enums.InquirySource;
 import com.classes.Backend.Domain.enums.InquiryStatus;
+import com.classes.Backend.Domain.enums.NotificationType;
+import com.classes.Backend.Domain.institute.Institute;
+import com.classes.Backend.Domain.notification.Notification;
+import com.classes.Backend.Domain.users.UserInstituteAssociation;
+import com.classes.Backend.Domain.enums.InstituteStaffRole;
 import com.classes.Backend.Repository.course.InstituteCourseRepository;
 import com.classes.Backend.Repository.leads.InquiryRepository;
+import com.classes.Backend.Service.institute.InstituteService;
+import com.classes.Backend.Service.notification.NotificationService;
 import com.classes.Backend.Service.subscription.CreditServiceImpl;
+import com.classes.Backend.Service.users.UserInstituteAssociationService;
 import com.classes.Backend.dto.leads.InstituteInquiryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,11 +33,75 @@ public class InquiryServiceImpl implements InquiryService {
     private final InquiryRepository INQUIRY_REPOSITORY;
     private final InstituteCourseRepository INSTITUTE_COURSE_REPOSITORY;
     private final CreditServiceImpl CREDIT_SERVICE_IMPL;
+    private final NotificationService NOTIFICATION_SERVICE;
+    private final UserInstituteAssociationService USER_INSTITUTE_ASSOCIATION_SERVICE;
+    private final InstituteService INSTITUTE_SERVICE;
 
     // ================ SAVE INQUIRY ===================== //
     @Override
+    @Transactional
     public Inquiry save(Inquiry inquiry) {
-        return this.INQUIRY_REPOSITORY.save(inquiry);
+        Inquiry savedInquiry = this.INQUIRY_REPOSITORY.save(inquiry);
+        if (savedInquiry.getSource() == InquirySource.BOOK_DEMO) {
+            createBookDemoNotification(savedInquiry);
+        }
+        return savedInquiry;
+    }
+
+    private void createBookDemoNotification(Inquiry inquiry) {
+        String instituteIdentifier = inquiry.getInstituteIdentifier();
+        if (instituteIdentifier == null || instituteIdentifier.isBlank()) {
+            return;
+        }
+
+        List<String> recipientUserIdentifiers = resolveInstituteOwnerIdentifiers(instituteIdentifier);
+        if (recipientUserIdentifiers.isEmpty()) {
+            return;
+        }
+
+        String instituteName = INSTITUTE_SERVICE.findById(instituteIdentifier)
+                .map(Institute::getName)
+                .orElse("your institute");
+
+        String inquirerName = inquiry.getName() != null && !inquiry.getName().isBlank()
+                ? inquiry.getName()
+                : "Someone";
+
+        for (String userIdentifier : recipientUserIdentifiers) {
+            Notification notification = new Notification();
+            notification.setUserIdentifier(userIdentifier);
+            notification.setType(NotificationType.INQUIRY_RECEIVED);
+            notification.setTitle("New demo booking");
+            notification.setBody(inquirerName + " booked a demo for " + instituteName + ".");
+            notification.setEntityType("INQUIRY");
+            notification.setEntityIdentifier(inquiry.getIdentifier());
+            notification.setIsRead(false);
+            NOTIFICATION_SERVICE.save(notification);
+        }
+    }
+
+    private List<String> resolveInstituteOwnerIdentifiers(String instituteIdentifier) {
+        List<UserInstituteAssociation> associations = USER_INSTITUTE_ASSOCIATION_SERVICE
+                .findByInstituteIdentifier(instituteIdentifier);
+
+        List<String> ownerIdentifiers = associations.stream()
+                .filter(assoc -> Boolean.TRUE.equals(assoc.getIsActive()))
+                .filter(assoc -> assoc.getRole() == InstituteStaffRole.OWNER)
+                .map(UserInstituteAssociation::getUserIdentifier)
+                .filter(userId -> userId != null && !userId.isBlank())
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (!ownerIdentifiers.isEmpty()) {
+            return ownerIdentifiers;
+        }
+
+        INSTITUTE_SERVICE.findById(instituteIdentifier)
+                .map(Institute::getCreatedBy)
+                .filter(createdBy -> createdBy != null && !createdBy.isBlank())
+                .ifPresent(ownerIdentifiers::add);
+
+        return ownerIdentifiers;
     }
 
     // ================ SAVE ALL INQUIRIES ===================== //

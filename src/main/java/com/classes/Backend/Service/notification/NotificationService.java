@@ -19,4 +19,7 @@ public interface NotificationService {
     List<Notification> findByUserIdentifier(String userIdentifier);
     List<Notification> findByUserIdentifierAndIsReadFalse(String userIdentifier);
     List<Notification> findByType(NotificationType type);
+
+    // ================ MARK AS READ ===================== //
+    Notification markAsRead(String identifier);
 }

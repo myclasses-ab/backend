@@ -45,7 +45,8 @@ public class S3Service {
     private static final Map<String, String> FOLDER_SUFFIX_MAP = Map.of(
         "instituteLogo", "logo",
         "instituteBanner", "banner",
-        "facultyImage", "image"
+        "facultyImage", "image",
+        "studentImage", "image"
     );
 
     @PostConstruct
