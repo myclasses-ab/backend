@@ -1,7 +1,6 @@
 package com.classes.Backend.Service.reviews;
 
 import com.classes.Backend.Domain.reviews.Review;
-import com.classes.Backend.Domain.enums.ReviewStatus;
 import com.classes.Backend.Domain.enums.Standard;
 
 import java.util.List;
@@ -19,9 +18,6 @@ public interface ReviewService {
     // ================ CUSTOM FINDER METHODS ===================== //
     List<Review> findByInstituteIdentifier(String instituteIdentifier);
     List<Review> findByUserIdentifier(String userIdentifier);
-    List<Review> findByStatus(ReviewStatus status);
-    List<Review> findByInstituteIdentifierAndStatus(String instituteIdentifier, ReviewStatus status);
     List<Review> findByStandardWhenEnrolled(Standard standard);
-    List<Review> findByWouldRecommendTrue();
     List<Review> findByIsVerifiedStudentTrue();
 }

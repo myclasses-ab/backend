@@ -27,7 +27,7 @@ public class InstituteCourse {
     private String branchIdentifier;
 
     @Column(name = "custom_name", length = 300)
-    private String customName;
+    private String courseName;
 
     @Column(name = "fee", precision = 12, scale = 2)
     private BigDecimal fee;

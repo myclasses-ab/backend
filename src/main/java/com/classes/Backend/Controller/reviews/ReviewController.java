@@ -1,6 +1,5 @@
 package com.classes.Backend.Controller.reviews;
 
-import com.classes.Backend.Domain.enums.ReviewStatus;
 import com.classes.Backend.Domain.enums.Standard;
 import com.classes.Backend.Domain.reviews.Review;
 import com.classes.Backend.Service.reviews.ReviewServiceImpl;
@@ -72,28 +71,10 @@ public class ReviewController {
         return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.findByUserIdentifier(userIdentifier), HttpStatus.OK);
     }
 
-    // ================ FIND BY STATUS ===================== //
-    @GetMapping("/status/{status}")
-    public ResponseEntity<?> findByStatus(@PathVariable ReviewStatus status) {
-        return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.findByStatus(status), HttpStatus.OK);
-    }
-
-    // ================ FIND BY INSTITUTE AND STATUS ===================== //
-    @GetMapping("/institute/{instituteIdentifier}/status/{status}")
-    public ResponseEntity<?> findByInstituteIdentifierAndStatus(@PathVariable String instituteIdentifier, @PathVariable ReviewStatus status) {
-        return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.findByInstituteIdentifierAndStatus(instituteIdentifier, status), HttpStatus.OK);
-    }
-
     // ================ FIND BY STANDARD WHEN ENROLLED ===================== //
     @GetMapping("/standard/{standard}")
     public ResponseEntity<?> findByStandardWhenEnrolled(@PathVariable Standard standard) {
         return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.findByStandardWhenEnrolled(standard), HttpStatus.OK);
-    }
-
-    // ================ FIND RECOMMENDED REVIEWS ===================== //
-    @GetMapping("/recommended")
-    public ResponseEntity<?> findByWouldRecommendTrue() {
-        return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.findByWouldRecommendTrue(), HttpStatus.OK);
     }
 
     // ================ FIND VERIFIED STUDENT REVIEWS ===================== //

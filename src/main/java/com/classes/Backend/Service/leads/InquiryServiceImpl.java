@@ -166,7 +166,7 @@ public class InquiryServiceImpl implements InquiryService {
     // ================ HELPER METHODS ===================== //
     private Map<String, String> loadCourseNames(String instituteIdentifier) {
         return this.INSTITUTE_COURSE_REPOSITORY.findByInstituteIdentifier(instituteIdentifier).stream()
-                .filter(course -> course.getCustomName() != null)
-                .collect(Collectors.toMap(InstituteCourse::getIdentifier, InstituteCourse::getCustomName, (a, b) -> a));
+                .filter(course -> course.getCourseName() != null)
+                .collect(Collectors.toMap(InstituteCourse::getIdentifier, InstituteCourse::getCourseName, (a, b) -> a));
     }
 }

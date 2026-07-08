@@ -1,6 +1,5 @@
 package com.classes.Backend.Controller.results;
 
-import com.classes.Backend.Domain.enums.RankOrScoreType;
 import com.classes.Backend.Domain.results.Result;
 import com.classes.Backend.Service.results.ResultServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -65,39 +64,9 @@ public class ResultController {
         return new ResponseEntity<>(this.RESULT_SERVICE_IMPL.findByInstituteIdentifier(instituteIdentifier), HttpStatus.OK);
     }
 
-    // ================ FIND BY EXAM TYPE IDENTIFIER ===================== //
-    @GetMapping("/exam-type/{examTypeIdentifier}")
-    public ResponseEntity<?> findByExamTypeIdentifier(@PathVariable String examTypeIdentifier) {
-        return new ResponseEntity<>(this.RESULT_SERVICE_IMPL.findByExamTypeIdentifier(examTypeIdentifier), HttpStatus.OK);
-    }
-
-    // ================ FIND BY EXAM YEAR ===================== //
-    @GetMapping("/exam-year/{examYear}")
-    public ResponseEntity<?> findByExamYear(@PathVariable Integer examYear) {
-        return new ResponseEntity<>(this.RESULT_SERVICE_IMPL.findByExamYear(examYear), HttpStatus.OK);
-    }
-
-    // ================ FIND BY INSTITUTE AND EXAM YEAR ===================== //
-    @GetMapping("/institute/{instituteIdentifier}/exam-year/{examYear}")
-    public ResponseEntity<?> findByInstituteIdentifierAndExamYear(@PathVariable String instituteIdentifier, @PathVariable Integer examYear) {
-        return new ResponseEntity<>(this.RESULT_SERVICE_IMPL.findByInstituteIdentifierAndExamYear(instituteIdentifier, examYear), HttpStatus.OK);
-    }
-
     // ================ FIND FEATURED RESULTS ===================== //
     @GetMapping("/featured")
     public ResponseEntity<?> findByIsFeaturedTrue() {
         return new ResponseEntity<>(this.RESULT_SERVICE_IMPL.findByIsFeaturedTrue(), HttpStatus.OK);
-    }
-
-    // ================ FIND VERIFIED RESULTS ===================== //
-    @GetMapping("/verified")
-    public ResponseEntity<?> findByIsVerifiedTrue() {
-        return new ResponseEntity<>(this.RESULT_SERVICE_IMPL.findByIsVerifiedTrue(), HttpStatus.OK);
-    }
-
-    // ================ FIND BY RANK OR SCORE TYPE ===================== //
-    @GetMapping("/rank-or-score-type/{rankOrScoreType}")
-    public ResponseEntity<?> findByRankOrScoreType(@PathVariable RankOrScoreType rankOrScoreType) {
-        return new ResponseEntity<>(this.RESULT_SERVICE_IMPL.findByRankOrScoreType(rankOrScoreType), HttpStatus.OK);
     }
 }

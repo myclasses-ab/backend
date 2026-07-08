@@ -1,6 +1,5 @@
 package com.classes.Backend.Domain.results;
 
-import com.classes.Backend.Domain.enums.RankOrScoreType;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -23,11 +22,8 @@ public class Result {
     @Column(name = "institute_identifier")
     private String instituteIdentifier;
 
-    @Column(name = "exam_type_identifier")
-    private String examTypeIdentifier;
-
-    @Column(name = "exam_year", nullable = false)
-    private Integer examYear;
+    @Column(name = "exam", length = 200)
+    private String exam;
 
     @Column(name = "student_name", length = 200)
     private String studentName;
@@ -35,21 +31,11 @@ public class Result {
     @Column(name = "student_photo_url", length = 500)
     private String studentPhotoUrl;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "rank_or_score_type")
-    private RankOrScoreType rankOrScoreType;
-
     @Column(name = "value", length = 100)
     private String value;
 
-    @Column(name = "college_admitted", length = 300)
-    private String collegeAdmitted;
-
     @Column(name = "testimonial_quote", columnDefinition = "TEXT")
     private String testimonialQuote;
-
-    @Column(name = "is_verified")
-    private Boolean isVerified = false;
 
     @Column(name = "is_featured")
     private Boolean isFeatured = false;

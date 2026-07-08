@@ -79,9 +79,6 @@ public class InstituteFacility {
     @Column(name = "has_performance_tracking")
     private Boolean hasPerformanceTracking = false;
 
-    @Column(name = "student_to_teacher_ratio", length = 20)
-    private String studentToTeacherRatio;
-
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 

@@ -5,7 +5,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -31,16 +30,13 @@ public class Faculty {
     private String photoUrl;
 
     @Column(name = "designation", length = 200)
-    private String designation;
+    private String subject;
 
     @Column(name = "qualification", length = 500)
     private String qualification;
 
     @Column(name = "experience_years")
     private Integer experienceYears;
-
-    @Column(name = "student_rating", precision = 3, scale = 2)
-    private BigDecimal studentRating;
 
     @Column(name = "display_order")
     private Integer displayOrder;

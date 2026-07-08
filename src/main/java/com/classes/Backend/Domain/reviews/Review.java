@@ -1,6 +1,5 @@
 package com.classes.Backend.Domain.reviews;
 
-import com.classes.Backend.Domain.enums.ReviewStatus;
 import com.classes.Backend.Domain.enums.Standard;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -41,12 +40,6 @@ public class Review {
     @Column(name = "review_text", columnDefinition = "TEXT")
     private String reviewText;
 
-    @Column(name = "pros", columnDefinition = "TEXT")
-    private String pros;
-
-    @Column(name = "cons", columnDefinition = "TEXT")
-    private String cons;
-
     @Column(name = "overall_rating", precision = 3, scale = 2)
     private BigDecimal overallRating;
 
@@ -67,19 +60,6 @@ public class Review {
 
     @Column(name = "result_achievement_rating", precision = 3, scale = 2)
     private BigDecimal resultAchievementRating;
-
-    @Column(name = "would_recommend")
-    private Boolean wouldRecommend;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private ReviewStatus status = ReviewStatus.PENDING;
-
-    @Column(name = "admin_notes", columnDefinition = "TEXT")
-    private String adminNotes;
-
-    @Column(name = "helpful_count")
-    private Integer helpfulCount = 0;
 
     @Column(name = "reported_count")
     private Integer reportedCount = 0;
