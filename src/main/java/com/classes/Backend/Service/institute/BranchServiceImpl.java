@@ -4,9 +4,12 @@ import com.classes.Backend.Domain.institute.Branch;
 import com.classes.Backend.Repository.institute.BranchRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -16,7 +19,34 @@ public class BranchServiceImpl implements BranchService {
     // ================ SAVE BRANCH ===================== //
     @Override
     public Branch save(Branch branch) {
+        normalizeServiceCities(branch);
         return this.BRANCH_REPOSITORY.save(branch);
+    }
+
+    private void normalizeServiceCities(Branch branch) {
+        List<String> cities = branch.getServiceCities();
+        if (cities == null) {
+            cities = new ArrayList<>();
+        }
+
+        // Backfill from legacy cityName if the list is empty
+        if (cities.isEmpty() && branch.getCityName() != null && !branch.getCityName().trim().isEmpty()) {
+            cities.add(branch.getCityName().trim());
+        }
+
+        List<String> normalized = cities.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (CollectionUtils.isEmpty(normalized)) {
+            branch.setServiceCities(new ArrayList<>());
+            return;
+        }
+
+        branch.setServiceCities(normalized);
+        branch.setCityName(normalized.get(0));
     }
 
     // ================ SAVE ALL BRANCHES ===================== //

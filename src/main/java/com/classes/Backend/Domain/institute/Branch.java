@@ -1,6 +1,7 @@
 package com.classes.Backend.Domain.institute;
 
 import jakarta.persistence.*;
+import java.util.stream.Collectors;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -8,6 +9,8 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -45,6 +48,12 @@ public class Branch {
     @Column(name = "city_name", length = 200)
     private String cityName;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "branch_service_cities", joinColumns = @JoinColumn(name = "branch_identifier"))
+    @Column(name = "city_name", length = 200)
+    @OrderColumn(name = "sort_order")
+    private List<String> serviceCities = new ArrayList<>();
+
     @Column(name = "state", length = 200)
     private String state;
 
@@ -81,5 +90,25 @@ public class Branch {
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        syncPrimaryCity();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        syncPrimaryCity();
+    }
+
+    private void syncPrimaryCity() {
+        if (serviceCities != null && !serviceCities.isEmpty()) {
+            // Trim and dedupe while keeping order
+            List<String> normalized = serviceCities.stream()
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .distinct()
+                    .collect(Collectors.toList());
+            serviceCities.clear();
+            serviceCities.addAll(normalized);
+            cityName = serviceCities.get(0);
+        }
     }
 }
