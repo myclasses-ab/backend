@@ -21,7 +21,17 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, String
 
     Page<ActivityLog> findByActorTypeAndActorIdentifier(ActivityActorType actorType, String actorIdentifier, Pageable pageable);
 
-    Page<ActivityLog> findByInstituteIdentifier(String instituteIdentifier, Pageable pageable);
+    @Query("""
+            SELECT a FROM ActivityLog a
+            WHERE a.instituteIdentifier = :instituteIdentifier
+              AND a.actorType IN :actorTypes
+            ORDER BY a.createdAt DESC
+            """)
+    Page<ActivityLog> findInstituteAdminTimeline(
+            @Param("instituteIdentifier") String instituteIdentifier,
+            @Param("actorTypes") List<ActivityActorType> actorTypes,
+            Pageable pageable
+    );
 
     @Query(value = """
             SELECT a FROM ActivityLog a
@@ -89,9 +99,10 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, String
             SELECT a.instituteIdentifier, MAX(a.createdAt), COUNT(a)
             FROM ActivityLog a
             WHERE a.instituteIdentifier IS NOT NULL
+              AND a.actorType IN :actorTypes
             GROUP BY a.instituteIdentifier
             """)
-    List<Object[]> findInstituteActivitySummaries();
+    List<Object[]> findInstituteActivitySummaries(@Param("actorTypes") List<ActivityActorType> actorTypes);
 
     @Query("""
             SELECT a.actorIdentifier, a.actorName, MAX(a.createdAt), COUNT(a)

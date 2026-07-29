@@ -113,7 +113,8 @@ public class ActivityLogServiceImpl implements ActivityLogService {
     @Override
     public List<ActivityLog> getInstituteTimeline(String instituteIdentifier, int limit) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return activityLogRepository.findByInstituteIdentifier(instituteIdentifier, pageable)
+        List<ActivityActorType> actorTypes = List.of(ActivityActorType.INSTITUTE_ADMIN, ActivityActorType.INSTITUTE_STAFF);
+        return activityLogRepository.findInstituteAdminTimeline(instituteIdentifier, actorTypes, pageable)
                 .getContent();
     }
 
@@ -167,7 +168,8 @@ public class ActivityLogServiceImpl implements ActivityLogService {
 
     @Override
     public List<InstituteActivitySummary> getInstituteActivitySummaries() {
-        return activityLogRepository.findInstituteActivitySummaries().stream()
+        List<ActivityActorType> actorTypes = List.of(ActivityActorType.INSTITUTE_ADMIN, ActivityActorType.INSTITUTE_STAFF);
+        return activityLogRepository.findInstituteActivitySummaries(actorTypes).stream()
                 .map(row -> InstituteActivitySummary.builder()
                         .identifier((String) row[0])
                         .name(null)
