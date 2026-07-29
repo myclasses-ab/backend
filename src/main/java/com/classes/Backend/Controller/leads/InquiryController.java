@@ -67,33 +67,33 @@ public class InquiryController {
         Inquiry saved = this.INQUIRY_SERVICE_IMPL.save(inquiry);
 
         ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
-        if (actor.isAuthenticated() && saved.getUserIdentifier() != null) {
-            ActivityActionType action = saved.getSource() == InquirySource.CALLBACK_REQUEST
-                    ? ActivityActionType.BOOKED_DEMO
-                    : ActivityActionType.SUBMITTED_INQUIRY;
-            String instituteName = saved.getInstituteIdentifier();
+        ActivityActionType action = saved.getSource() == InquirySource.CALLBACK_REQUEST
+                ? ActivityActionType.BOOKED_DEMO
+                : ActivityActionType.SUBMITTED_INQUIRY;
+        String actorIdentifier = actor.isAuthenticated() ? actor.getIdentifier() : saved.getUserIdentifier();
+        String actorName = actor.isAuthenticated() ? actor.getName() : saved.getName();
+        String instituteName = saved.getInstituteIdentifier();
 
-            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
-                    .actorType(ActivityActorType.STUDENT)
-                    .actorIdentifier(saved.getUserIdentifier())
-                    .actorName(saved.getName())
-                    .actionType(action)
-                    .entityType(ActivityEntityType.INQUIRY)
-                    .entityIdentifier(saved.getIdentifier())
-                    .entityName(saved.getName())
-                    .instituteIdentifier(saved.getInstituteIdentifier())
-                    .description((action == ActivityActionType.BOOKED_DEMO ? "Booked a demo" : "Submitted inquiry")
-                            + (instituteName != null ? " for institute" : ""))
-                    .metadata(Map.of(
-                            "studentName", saved.getName() != null ? saved.getName() : "",
-                            "phone", maskPhone(saved.getPhone()),
-                            "targetExam", saved.getTargetExam() != null ? saved.getTargetExam() : "",
-                            "standard", saved.getStandard() != null ? saved.getStandard() : "",
-                            "source", saved.getSource() != null ? saved.getSource().name() : ""
-                    ))
-                    .source("FRONTEND")
-                    .build());
-        }
+        ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                .actorType(ActivityActorType.STUDENT)
+                .actorIdentifier(actorIdentifier)
+                .actorName(actorName)
+                .actionType(action)
+                .entityType(ActivityEntityType.INQUIRY)
+                .entityIdentifier(saved.getIdentifier())
+                .entityName(saved.getName())
+                .instituteIdentifier(saved.getInstituteIdentifier())
+                .description((action == ActivityActionType.BOOKED_DEMO ? "Booked a demo" : "Submitted inquiry")
+                        + (instituteName != null ? " for institute" : ""))
+                .metadata(Map.of(
+                        "studentName", saved.getName() != null ? saved.getName() : "",
+                        "phone", maskPhone(saved.getPhone()),
+                        "targetExam", saved.getTargetExam() != null ? saved.getTargetExam() : "",
+                        "standard", saved.getStandard() != null ? saved.getStandard() : "",
+                        "source", saved.getSource() != null ? saved.getSource().name() : ""
+                ))
+                .source("FRONTEND")
+                .build());
 
         return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
