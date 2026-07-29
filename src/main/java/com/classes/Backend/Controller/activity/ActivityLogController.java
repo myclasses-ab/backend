@@ -8,8 +8,6 @@ import com.classes.Backend.dto.activity.ActivityLogFilterRequest;
 import com.classes.Backend.dto.activity.ActivityLogPageResponse;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
 import com.classes.Backend.dto.activity.ActivityLogStatsResponse;
-import com.classes.Backend.dto.activity.InstituteActivitySummary;
-import com.classes.Backend.dto.activity.StudentActivitySummary;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -58,16 +56,6 @@ public class ActivityLogController {
     @GetMapping("/stats")
     public ResponseEntity<ActivityLogStatsResponse> getStats() {
         return ResponseEntity.ok(activityLogService.getStats());
-    }
-
-    @GetMapping("/institutes/summary")
-    public ResponseEntity<List<InstituteActivitySummary>> getInstituteSummaries() {
-        return ResponseEntity.ok(activityLogService.getInstituteActivitySummaries());
-    }
-
-    @GetMapping("/students/summary")
-    public ResponseEntity<List<StudentActivitySummary>> getStudentSummaries() {
-        return ResponseEntity.ok(activityLogService.getStudentActivitySummaries());
     }
 
     @PostMapping("/track")
