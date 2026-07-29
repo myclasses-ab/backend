@@ -9,6 +9,8 @@ import com.classes.Backend.dto.activity.ActivityLogFilterRequest;
 import com.classes.Backend.dto.activity.ActivityLogPageResponse;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
 import com.classes.Backend.dto.activity.ActivityLogStatsResponse;
+import com.classes.Backend.dto.activity.InstituteActivitySummary;
+import com.classes.Backend.dto.activity.StudentActivitySummary;
 import com.classes.Backend.dto.activity.TopActor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -159,6 +161,30 @@ public class ActivityLogServiceImpl implements ActivityLogService {
                 .map(row -> ActionCount.builder()
                         .actionType((ActivityActionType) row[0])
                         .count((Long) row[1])
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<InstituteActivitySummary> getInstituteActivitySummaries() {
+        return activityLogRepository.findInstituteActivitySummaries().stream()
+                .map(row -> InstituteActivitySummary.builder()
+                        .identifier((String) row[0])
+                        .name(null)
+                        .eventCount((Long) row[2])
+                        .lastActiveAt((LocalDateTime) row[1])
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<StudentActivitySummary> getStudentActivitySummaries() {
+        return activityLogRepository.findActorActivitySummaries(ActivityActorType.STUDENT).stream()
+                .map(row -> StudentActivitySummary.builder()
+                        .identifier((String) row[0])
+                        .name((String) row[1])
+                        .eventCount((Long) row[3])
+                        .lastActiveAt((LocalDateTime) row[2])
                         .build())
                 .collect(Collectors.toList());
     }

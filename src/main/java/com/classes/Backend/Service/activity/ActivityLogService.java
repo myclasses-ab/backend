@@ -5,6 +5,8 @@ import com.classes.Backend.dto.activity.ActivityLogFilterRequest;
 import com.classes.Backend.dto.activity.ActivityLogPageResponse;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
 import com.classes.Backend.dto.activity.ActivityLogStatsResponse;
+import com.classes.Backend.dto.activity.InstituteActivitySummary;
+import com.classes.Backend.dto.activity.StudentActivitySummary;
 
 import java.util.List;
 
@@ -15,4 +17,6 @@ public interface ActivityLogService {
     List<ActivityLog> getStudentTimeline(String userIdentifier, int limit);
     List<ActivityLog> getInstituteTimeline(String instituteIdentifier, int limit);
     ActivityLogStatsResponse getStats();
+    List<InstituteActivitySummary> getInstituteActivitySummaries();
+    List<StudentActivitySummary> getStudentActivitySummaries();
 }
