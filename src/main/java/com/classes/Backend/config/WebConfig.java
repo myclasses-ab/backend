@@ -18,11 +18,10 @@ public class WebConfig {
                 "http://localhost:3000",
                 "http://localhost:3001",
                 "http://localhost:3002",
-                "http://localhost:5173",
-                "https://myclasses-console.web.app",
-                "https://frontend-two-gray-7k7ncc9ipq.vercel.app",
-                "https://www.myclasses.co.in",
-                "https://myclasses.co.in"
+                "https://console.myclasses.co.in",
+                "https://admin.myclasses.co.in",
+                "https://myclasses.co.in",
+                "https://www.myclasses.co.in"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));

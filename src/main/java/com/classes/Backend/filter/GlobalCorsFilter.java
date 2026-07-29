@@ -37,9 +37,12 @@ public class GlobalCorsFilter extends OncePerRequestFilter {
     }
 
     private boolean isAllowedOrigin(String origin) {
-        return origin.startsWith("http://localhost:")
-                || origin.startsWith("https://localhost:")
-                || origin.endsWith(".web.app")
-                || origin.endsWith(".vercel.app");
+        return origin.equals("http://localhost:3000")
+                || origin.equals("http://localhost:3001")
+                || origin.equals("http://localhost:3002")
+                || origin.equals("https://console.myclasses.co.in")
+                || origin.equals("https://admin.myclasses.co.in")
+                || origin.equals("https://myclasses.co.in")
+                || origin.equals("https://www.myclasses.co.in");
     }
 }
