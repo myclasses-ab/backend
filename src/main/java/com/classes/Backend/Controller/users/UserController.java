@@ -1,9 +1,16 @@
 package com.classes.Backend.Controller.users;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.enums.UserRole;
 import com.classes.Backend.Domain.users.User;
+import com.classes.Backend.Service.activity.ActivityLogActorResolver;
+import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.activity.ResolvedActor;
 import com.classes.Backend.Service.users.UserServiceImpl;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
 import com.classes.Backend.dto.users.UserActivityTrackRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -18,6 +26,8 @@ import java.util.List;
 public class UserController {
 
     private final UserServiceImpl USER_SERVICE_IMPL;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final ActivityLogActorResolver ACTOR_RESOLVER;
 
     // ================ CREATE USER ===================== //
     @PostMapping
@@ -105,7 +115,7 @@ public class UserController {
 
     // ================ TRACK USER ACTIVITY ===================== //
     @PostMapping("/{identifier}/track-activity")
-    public ResponseEntity<?> trackActivity(@PathVariable String identifier, @RequestBody UserActivityTrackRequest request) {
+    public ResponseEntity<?> trackActivity(@PathVariable String identifier, @RequestBody UserActivityTrackRequest request, HttpServletRequest httpRequest) {
         User user = this.USER_SERVICE_IMPL.findById(identifier)
                 .orElse(null);
         if (user == null) {
@@ -142,6 +152,49 @@ public class UserController {
         }
 
         User updated = this.USER_SERVICE_IMPL.save(user);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(httpRequest);
+        if (actor.isAuthenticated()) {
+            boolean searched = (request.getCity() != null && !request.getCity().isBlank())
+                    || (request.getExam() != null && !request.getExam().isBlank());
+            boolean viewed = request.getInstituteIdentifier() != null && !request.getInstituteIdentifier().isBlank();
+
+            if (searched) {
+                ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                        .actorType(actor.getType())
+                        .actorIdentifier(actor.getIdentifier())
+                        .actorName(actor.getName())
+                        .actionType(ActivityActionType.SEARCHED_INSTITUTES)
+                        .entityType(ActivityEntityType.INSTITUTE)
+                        .description("Searched institutes")
+                        .metadata(Map.of(
+                                "city", request.getCity() != null ? request.getCity() : "",
+                                "exam", request.getExam() != null ? request.getExam() : ""
+                        ))
+                        .ipAddress(httpRequest.getRemoteAddr())
+                        .userAgent(httpRequest.getHeader("User-Agent"))
+                        .source("FRONTEND")
+                        .build());
+            }
+
+            if (viewed) {
+                ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                        .actorType(actor.getType())
+                        .actorIdentifier(actor.getIdentifier())
+                        .actorName(actor.getName())
+                        .actionType(ActivityActionType.VIEWED_INSTITUTE)
+                        .entityType(ActivityEntityType.INSTITUTE)
+                        .entityIdentifier(request.getInstituteIdentifier())
+                        .entityName(request.getInstituteName())
+                        .instituteIdentifier(request.getInstituteIdentifier())
+                        .description("Viewed institute" + (request.getInstituteName() != null ? " " + request.getInstituteName() : ""))
+                        .ipAddress(httpRequest.getRemoteAddr())
+                        .userAgent(httpRequest.getHeader("User-Agent"))
+                        .source("FRONTEND")
+                        .build());
+            }
+        }
+
         return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 

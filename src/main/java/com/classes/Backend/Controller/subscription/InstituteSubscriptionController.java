@@ -1,13 +1,21 @@
 package com.classes.Backend.Controller.subscription;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.subscription.InstituteSubscription;
+import com.classes.Backend.Service.activity.ActivityLogActorResolver;
+import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.activity.ResolvedActor;
 import com.classes.Backend.Service.subscription.InstituteSubscriptionServiceImpl;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -15,11 +23,35 @@ import java.util.List;
 public class InstituteSubscriptionController {
 
     private final InstituteSubscriptionServiceImpl INSTITUTE_SUBSCRIPTION_SERVICE_IMPL;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final ActivityLogActorResolver ACTOR_RESOLVER;
 
     // ================ CREATE INSTITUTE SUBSCRIPTION ===================== //
     @PostMapping
-    public ResponseEntity<?> saveInstituteSubscription(@RequestBody InstituteSubscription instituteSubscription) {
-        return new ResponseEntity<>(this.INSTITUTE_SUBSCRIPTION_SERVICE_IMPL.save(instituteSubscription), HttpStatus.CREATED);
+    public ResponseEntity<?> saveInstituteSubscription(@RequestBody InstituteSubscription instituteSubscription, HttpServletRequest request) {
+        InstituteSubscription saved = this.INSTITUTE_SUBSCRIPTION_SERVICE_IMPL.save(instituteSubscription);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.SUBSCRIPTION_CHANGED)
+                    .entityType(ActivityEntityType.SUBSCRIPTION)
+                    .entityIdentifier(saved.getIdentifier())
+                    .entityName("Subscription")
+                    .instituteIdentifier(saved.getInstituteIdentifier())
+                    .description("Created institute subscription" + (saved.getPlanIdentifier() != null ? " on plan " + saved.getPlanIdentifier() : ""))
+                    .metadata(Map.of(
+                            "planIdentifier", saved.getPlanIdentifier() != null ? saved.getPlanIdentifier() : "",
+                            "isActive", saved.getIsActive()
+                    ))
+                    .source("CONSOLE")
+                    .build());
+        }
+
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     // ================ CREATE ALL INSTITUTE SUBSCRIPTIONS ===================== //
@@ -50,12 +82,36 @@ public class InstituteSubscriptionController {
 
     // ================ UPDATE INSTITUTESUBSCRIPTION BY ID ===================== //
     @PutMapping("/{identifier}")
-    public ResponseEntity<?> updateInstituteSubscriptionById(@PathVariable String identifier, @RequestBody InstituteSubscription instituteSubscription) {
-        if (!this.INSTITUTE_SUBSCRIPTION_SERVICE_IMPL.existsById(identifier)) {
+    public ResponseEntity<?> updateInstituteSubscriptionById(@PathVariable String identifier, @RequestBody InstituteSubscription instituteSubscription, HttpServletRequest request) {
+        InstituteSubscription existing = this.INSTITUTE_SUBSCRIPTION_SERVICE_IMPL.findById(identifier).orElse(null);
+        if (existing == null) {
             return new ResponseEntity<>("InstituteSubscription not found", HttpStatus.NOT_FOUND);
         }
         instituteSubscription.setIdentifier(identifier);
-        return new ResponseEntity<>(this.INSTITUTE_SUBSCRIPTION_SERVICE_IMPL.save(instituteSubscription), HttpStatus.OK);
+        InstituteSubscription updated = this.INSTITUTE_SUBSCRIPTION_SERVICE_IMPL.save(instituteSubscription);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.SUBSCRIPTION_CHANGED)
+                    .entityType(ActivityEntityType.SUBSCRIPTION)
+                    .entityIdentifier(updated.getIdentifier())
+                    .entityName("Subscription")
+                    .instituteIdentifier(updated.getInstituteIdentifier())
+                    .description("Updated institute subscription" + (updated.getPlanIdentifier() != null ? " on plan " + updated.getPlanIdentifier() : ""))
+                    .metadata(Map.of(
+                            "oldPlanIdentifier", existing.getPlanIdentifier() != null ? existing.getPlanIdentifier() : "",
+                            "newPlanIdentifier", updated.getPlanIdentifier() != null ? updated.getPlanIdentifier() : "",
+                            "isActive", updated.getIsActive()
+                    ))
+                    .source("CONSOLE")
+                    .build());
+        }
+
+        return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
     // ================ FIND BY INSTITUTE IDENTIFIER ===================== //

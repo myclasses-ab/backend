@@ -1,18 +1,23 @@
 package com.classes.Backend.Controller.auth;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityActorType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.enums.InstituteStaffRole;
 import com.classes.Backend.Domain.enums.UserRole;
 import com.classes.Backend.Domain.institute.Institute;
 import com.classes.Backend.Domain.users.User;
 import com.classes.Backend.Domain.users.UserInstituteAssociation;
-import com.classes.Backend.dto.auth.AuthResponse;
-import com.classes.Backend.dto.auth.LoginRequest;
-import com.classes.Backend.dto.auth.RegisterRequest;
-import com.classes.Backend.dto.auth.SignupRequest;
+import com.classes.Backend.Service.activity.ActivityLogService;
 import com.classes.Backend.Service.auth.JwtService;
 import com.classes.Backend.Service.institute.InstituteServiceImpl;
 import com.classes.Backend.Service.users.UserInstituteAssociationServiceImpl;
 import com.classes.Backend.Service.users.UserService;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
+import com.classes.Backend.dto.auth.AuthResponse;
+import com.classes.Backend.dto.auth.LoginRequest;
+import com.classes.Backend.dto.auth.RegisterRequest;
+import com.classes.Backend.dto.auth.SignupRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +48,7 @@ public class AuthController {
     private final PasswordEncoder PASSWORD_ENCODER;
     private final InstituteServiceImpl INSTITUTE_SERVICE_IMPL;
     private final UserInstituteAssociationServiceImpl USER_INSTITUTE_ASSOCIATION_SERVICE_IMPL;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
 
     // In-memory OTP storage with TTL cleanup
     private final ConcurrentHashMap<String, OtpEntry> OTP_STORE = new ConcurrentHashMap<>();
@@ -80,6 +86,18 @@ public class AuthController {
         claims.put("role", user.getRole().name());
 
         String token = JWT_SERVICE.generateToken(claims, userDetails);
+
+        ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                .actorType(mapRoleToActorType(user.getRole()))
+                .actorIdentifier(user.getIdentifier())
+                .actorName(user.getFullName())
+                .actionType(ActivityActionType.LOGIN)
+                .entityType(ActivityEntityType.USER)
+                .entityIdentifier(user.getIdentifier())
+                .description("Logged in with email")
+                .source(resolveSourceFromRole(user.getRole()))
+                .build());
+
         return ResponseEntity.ok(new AuthResponse(token, user));
     }
 
@@ -340,6 +358,17 @@ public class AuthController {
         // Remove used OTP
         OTP_STORE.remove(phone);
 
+        ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                .actorType(ActivityActorType.STUDENT)
+                .actorIdentifier(user.getIdentifier())
+                .actorName(user.getFullName())
+                .actionType(isNewUser ? ActivityActionType.STUDENT_REGISTERED : ActivityActionType.LOGIN_OTP)
+                .entityType(ActivityEntityType.USER)
+                .entityIdentifier(user.getIdentifier())
+                .description(isNewUser ? "Student registered via OTP" : "Logged in via OTP")
+                .source("FRONTEND")
+                .build());
+
         // Generate JWT with phone as subject
         UserDetails userDetails = USER_DETAILS_SERVICE.loadUserByUsername(phone);
         Map<String, Object> claims = new HashMap<>();
@@ -362,5 +391,28 @@ public class AuthController {
                 .replaceAll("-+", "-")
                 .replaceAll("^-*|-*$", "");
         return slug.isEmpty() ? "institute" : slug;
+    }
+
+    private ActivityActorType mapRoleToActorType(UserRole role) {
+        if (role == null) {
+            return ActivityActorType.STUDENT;
+        }
+        return switch (role) {
+            case INSTITUTE_ADMIN -> ActivityActorType.INSTITUTE_ADMIN;
+            case INSTITUTE_STAFF -> ActivityActorType.INSTITUTE_STAFF;
+            case SUPER_ADMIN, CONTENT_MANAGER -> ActivityActorType.SUPER_ADMIN;
+            default -> ActivityActorType.STUDENT;
+        };
+    }
+
+    private String resolveSourceFromRole(UserRole role) {
+        if (role == null) {
+            return "FRONTEND";
+        }
+        return switch (role) {
+            case SUPER_ADMIN, CONTENT_MANAGER -> "SUPER_ADMIN";
+            case INSTITUTE_ADMIN, INSTITUTE_STAFF -> "CONSOLE";
+            default -> "FRONTEND";
+        };
     }
 }

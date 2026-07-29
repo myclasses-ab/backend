@@ -1,10 +1,18 @@
 package com.classes.Backend.Controller.institute;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.enums.InstituteType;
 import com.classes.Backend.Domain.enums.OwnershipType;
 import com.classes.Backend.Domain.enums.SubscriptionTier;
 import com.classes.Backend.Domain.institute.Institute;
+import com.classes.Backend.Service.activity.ActivityLogActorResolver;
+import com.classes.Backend.Service.activity.ActivityLogChangeExtractor;
+import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.activity.ResolvedActor;
 import com.classes.Backend.Service.institute.InstituteServiceImpl;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -20,19 +29,39 @@ import java.util.UUID;
 public class InstituteController {
 
     private final InstituteServiceImpl INSTITUTE_SERVICE_IMPL;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final ActivityLogActorResolver ACTOR_RESOLVER;
 
     // ================ CREATE INSTITUTE ===================== //
     @PostMapping
-    public ResponseEntity<?> saveInstitute(@RequestBody Institute institute) {
+    public ResponseEntity<?> saveInstitute(@RequestBody Institute institute, HttpServletRequest request) {
         // Always generate UUID for identifier - ignore any client-provided value
         institute.setIdentifier(UUID.randomUUID().toString());
-        
+
         // Generate slug from name if not provided
         if (institute.getSlug() == null || institute.getSlug().isBlank()) {
             institute.setSlug(generateSlug(institute.getName()));
         }
-        
-        return new ResponseEntity<>(this.INSTITUTE_SERVICE_IMPL.save(institute), HttpStatus.CREATED);
+
+        Institute saved = this.INSTITUTE_SERVICE_IMPL.save(institute);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.INSTITUTE_CREATED)
+                    .entityType(ActivityEntityType.INSTITUTE)
+                    .entityIdentifier(saved.getIdentifier())
+                    .entityName(saved.getName())
+                    .instituteIdentifier(saved.getIdentifier())
+                    .description("Created institute " + saved.getName())
+                    .source("CONSOLE")
+                    .build());
+        }
+
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     // ================ CREATE ALL INSTITUTES ===================== //
@@ -65,19 +94,60 @@ public class InstituteController {
 
     // ================ DELETE INSTITUTE BY ID ===================== //
     @DeleteMapping("/{identifier}")
-    public ResponseEntity<?> deleteInstituteById(@PathVariable String identifier) {
+    public ResponseEntity<?> deleteInstituteById(@PathVariable String identifier, HttpServletRequest request) {
+        String nameBeforeDelete = this.INSTITUTE_SERVICE_IMPL.findById(identifier)
+                .map(Institute::getName)
+                .orElse(null);
+
         this.INSTITUTE_SERVICE_IMPL.deleteById(identifier);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.INSTITUTE_DELETED)
+                    .entityType(ActivityEntityType.INSTITUTE)
+                    .entityIdentifier(identifier)
+                    .entityName(nameBeforeDelete)
+                    .instituteIdentifier(identifier)
+                    .description("Deleted institute" + (nameBeforeDelete != null ? " " + nameBeforeDelete : ""))
+                    .source("SUPER_ADMIN")
+                    .build());
+        }
+
         return new ResponseEntity<>("Institute deleted successfully", HttpStatus.OK);
     }
 
     // ================ UPDATE INSTITUTETYPE BY ID ===================== //
     @PutMapping("/{identifier}")
-    public ResponseEntity<?> updateInstituteById(@PathVariable String identifier, @RequestBody Institute institute) {
-        if (!this.INSTITUTE_SERVICE_IMPL.existsById(identifier)) {
+    public ResponseEntity<?> updateInstituteById(@PathVariable String identifier, @RequestBody Institute institute, HttpServletRequest request) {
+        Institute existing = this.INSTITUTE_SERVICE_IMPL.findById(identifier).orElse(null);
+        if (existing == null) {
             return new ResponseEntity<>("InstituteType not found", HttpStatus.NOT_FOUND);
         }
         institute.setIdentifier(identifier);
-        return new ResponseEntity<>(this.INSTITUTE_SERVICE_IMPL.save(institute), HttpStatus.OK);
+        Institute updated = this.INSTITUTE_SERVICE_IMPL.save(institute);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.INSTITUTE_UPDATED)
+                    .entityType(ActivityEntityType.INSTITUTE)
+                    .entityIdentifier(updated.getIdentifier())
+                    .entityName(updated.getName())
+                    .instituteIdentifier(updated.getIdentifier())
+                    .description("Updated institute profile")
+                    .metadata(Map.of("changedFields", ActivityLogChangeExtractor.extractChangedFields(existing, updated)))
+                    .source("CONSOLE")
+                    .build());
+        }
+
+        return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
     // ================ FIND BY SLUG ===================== //

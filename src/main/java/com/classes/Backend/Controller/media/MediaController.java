@@ -1,15 +1,23 @@
 package com.classes.Backend.Controller.media;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.enums.MediaEntityType;
 import com.classes.Backend.Domain.enums.MediaType;
 import com.classes.Backend.Domain.media.Media;
+import com.classes.Backend.Service.activity.ActivityLogActorResolver;
+import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.activity.ResolvedActor;
 import com.classes.Backend.Service.media.MediaServiceImpl;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -17,11 +25,35 @@ import java.util.List;
 public class MediaController {
 
     private final MediaServiceImpl MEDIA_SERVICE_IMPL;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final ActivityLogActorResolver ACTOR_RESOLVER;
 
     // ================ CREATE MEDIA ===================== //
     @PostMapping
-    public ResponseEntity<?> saveMedia(@RequestBody Media media) {
-        return new ResponseEntity<>(this.MEDIA_SERVICE_IMPL.save(media), HttpStatus.CREATED);
+    public ResponseEntity<?> saveMedia(@RequestBody Media media, HttpServletRequest request) {
+        Media saved = this.MEDIA_SERVICE_IMPL.save(media);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.MEDIA_UPLOADED)
+                    .entityType(ActivityEntityType.MEDIA)
+                    .entityIdentifier(saved.getIdentifier())
+                    .entityName(saved.getCaption() != null ? saved.getCaption() : saved.getUrl())
+                    .instituteIdentifier(saved.getInstituteIdentifier())
+                    .description("Uploaded " + (saved.getMediaType() != null ? saved.getMediaType().name() : "media"))
+                    .metadata(Map.of(
+                            "mediaType", saved.getMediaType() != null ? saved.getMediaType().name() : null,
+                            "entityType", saved.getEntityType() != null ? saved.getEntityType().name() : null
+                    ))
+                    .source("CONSOLE")
+                    .build());
+        }
+
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     // ================ CREATE ALL MEDIA ===================== //
@@ -45,19 +77,64 @@ public class MediaController {
 
     // ================ DELETE MEDIA BY ID ===================== //
     @DeleteMapping("/{identifier}")
-    public ResponseEntity<?> deleteMediaById(@PathVariable String identifier) {
+    public ResponseEntity<?> deleteMediaById(@PathVariable String identifier, HttpServletRequest request) {
+        Media existing = this.MEDIA_SERVICE_IMPL.findById(identifier).orElse(null);
+
         this.MEDIA_SERVICE_IMPL.deleteById(identifier);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated() && existing != null) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.MEDIA_DELETED)
+                    .entityType(ActivityEntityType.MEDIA)
+                    .entityIdentifier(identifier)
+                    .entityName(existing.getCaption() != null ? existing.getCaption() : existing.getUrl())
+                    .instituteIdentifier(existing.getInstituteIdentifier())
+                    .description("Deleted " + (existing.getMediaType() != null ? existing.getMediaType().name() : "media"))
+                    .metadata(Map.of(
+                            "mediaType", existing.getMediaType() != null ? existing.getMediaType().name() : null,
+                            "entityType", existing.getEntityType() != null ? existing.getEntityType().name() : null
+                    ))
+                    .source("CONSOLE")
+                    .build());
+        }
+
         return new ResponseEntity<>("Media deleted successfully", HttpStatus.OK);
     }
 
     // ================ UPDATE MEDIAENTITYTYPE BY ID ===================== //
     @PutMapping("/{identifier}")
-    public ResponseEntity<?> updateMediaById(@PathVariable String identifier, @RequestBody Media media) {
+    public ResponseEntity<?> updateMediaById(@PathVariable String identifier, @RequestBody Media media, HttpServletRequest request) {
         if (!this.MEDIA_SERVICE_IMPL.existsById(identifier)) {
             return new ResponseEntity<>("MediaEntityType not found", HttpStatus.NOT_FOUND);
         }
         media.setIdentifier(identifier);
-        return new ResponseEntity<>(this.MEDIA_SERVICE_IMPL.save(media), HttpStatus.OK);
+        Media updated = this.MEDIA_SERVICE_IMPL.save(media);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(actor.getType())
+                    .actorIdentifier(actor.getIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.MEDIA_UPLOADED)
+                    .entityType(ActivityEntityType.MEDIA)
+                    .entityIdentifier(updated.getIdentifier())
+                    .entityName(updated.getCaption() != null ? updated.getCaption() : updated.getUrl())
+                    .instituteIdentifier(updated.getInstituteIdentifier())
+                    .description("Updated " + (updated.getMediaType() != null ? updated.getMediaType().name() : "media"))
+                    .metadata(Map.of(
+                            "mediaType", updated.getMediaType() != null ? updated.getMediaType().name() : null,
+                            "entityType", updated.getEntityType() != null ? updated.getEntityType().name() : null
+                    ))
+                    .source("CONSOLE")
+                    .build());
+        }
+
+        return new ResponseEntity<>(updated, HttpStatus.OK);
     }
 
     // ================ FIND BY INSTITUTE IDENTIFIER ===================== //

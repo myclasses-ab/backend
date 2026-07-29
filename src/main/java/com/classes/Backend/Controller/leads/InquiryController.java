@@ -1,13 +1,21 @@
 package com.classes.Backend.Controller.leads;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityActorType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.enums.InquirySource;
 import com.classes.Backend.Domain.enums.InquiryStatus;
 import com.classes.Backend.Domain.leads.Inquiry;
 import com.classes.Backend.Domain.users.User;
+import com.classes.Backend.Service.activity.ActivityLogActorResolver;
+import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.activity.ResolvedActor;
 import com.classes.Backend.Service.auth.JwtService;
 import com.classes.Backend.Service.leads.InquiryServiceImpl;
 import com.classes.Backend.Service.users.UserService;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
 import com.classes.Backend.dto.leads.InstituteInquiryResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,11 +32,14 @@ public class InquiryController {
     private final InquiryServiceImpl INQUIRY_SERVICE_IMPL;
     private final JwtService JWT_SERVICE;
     private final UserService USER_SERVICE;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final ActivityLogActorResolver ACTOR_RESOLVER;
 
     // ================ CREATE INQUIRY ===================== //
     @PostMapping
     public ResponseEntity<?> saveInquiry(@RequestBody Inquiry inquiry,
-                                          @RequestHeader(value = "Authorization", required = false) String authHeader) {
+                                          @RequestHeader(value = "Authorization", required = false) String authHeader,
+                                          HttpServletRequest request) {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             try {
                 String token = authHeader.substring(7);
@@ -53,7 +64,45 @@ public class InquiryController {
                 // Ignore auth errors for anonymous tracking
             }
         }
-        return new ResponseEntity<>(this.INQUIRY_SERVICE_IMPL.save(inquiry), HttpStatus.CREATED);
+        Inquiry saved = this.INQUIRY_SERVICE_IMPL.save(inquiry);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated() && saved.getUserIdentifier() != null) {
+            ActivityActionType action = saved.getSource() == InquirySource.CALLBACK_REQUEST
+                    ? ActivityActionType.BOOKED_DEMO
+                    : ActivityActionType.SUBMITTED_INQUIRY;
+            String instituteName = saved.getInstituteIdentifier();
+
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(ActivityActorType.STUDENT)
+                    .actorIdentifier(saved.getUserIdentifier())
+                    .actorName(saved.getName())
+                    .actionType(action)
+                    .entityType(ActivityEntityType.INQUIRY)
+                    .entityIdentifier(saved.getIdentifier())
+                    .entityName(saved.getName())
+                    .instituteIdentifier(saved.getInstituteIdentifier())
+                    .description((action == ActivityActionType.BOOKED_DEMO ? "Booked a demo" : "Submitted inquiry")
+                            + (instituteName != null ? " for institute" : ""))
+                    .metadata(Map.of(
+                            "studentName", saved.getName() != null ? saved.getName() : "",
+                            "phone", maskPhone(saved.getPhone()),
+                            "targetExam", saved.getTargetExam() != null ? saved.getTargetExam() : "",
+                            "standard", saved.getStandard() != null ? saved.getStandard() : "",
+                            "source", saved.getSource() != null ? saved.getSource().name() : ""
+                    ))
+                    .source("FRONTEND")
+                    .build());
+        }
+
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 4) {
+            return phone;
+        }
+        return "****" + phone.substring(phone.length() - 4);
     }
 
     // ================ CREATE ALL INQUIRIES ===================== //
@@ -123,6 +172,19 @@ public class InquiryController {
             }
 
             InstituteInquiryResponse response = this.INQUIRY_SERVICE_IMPL.unlockInquiry(identifier, instituteIdentifier, user.getIdentifier());
+
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(ActivityActorType.INSTITUTE_ADMIN)
+                    .actorIdentifier(user.getIdentifier())
+                    .actorName(user.getFullName())
+                    .actionType(ActivityActionType.UNLOCKED_LEAD)
+                    .entityType(ActivityEntityType.INQUIRY)
+                    .entityIdentifier(identifier)
+                    .instituteIdentifier(instituteIdentifier)
+                    .description("Unlocked lead contact")
+                    .source("CONSOLE")
+                    .build());
+
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (IllegalArgumentException | IllegalStateException e) {
             return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);

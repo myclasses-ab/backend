@@ -1,14 +1,23 @@
 package com.classes.Backend.Controller.users;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityActorType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.enums.BookmarkEntityType;
 import com.classes.Backend.Domain.users.Bookmark;
+import com.classes.Backend.Service.activity.ActivityLogActorResolver;
+import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.activity.ResolvedActor;
 import com.classes.Backend.Service.users.BookmarkServiceImpl;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -16,11 +25,34 @@ import java.util.List;
 public class BookmarkController {
 
     private final BookmarkServiceImpl BOOKMARK_SERVICE_IMPL;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final ActivityLogActorResolver ACTOR_RESOLVER;
 
     // ================ CREATE BOOKMARK ===================== //
     @PostMapping
-    public ResponseEntity<?> saveBookmark(@RequestBody Bookmark bookmark) {
-        return new ResponseEntity<>(this.BOOKMARK_SERVICE_IMPL.save(bookmark), HttpStatus.CREATED);
+    public ResponseEntity<?> saveBookmark(@RequestBody Bookmark bookmark, HttpServletRequest request) {
+        Bookmark saved = this.BOOKMARK_SERVICE_IMPL.save(bookmark);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(ActivityActorType.STUDENT)
+                    .actorIdentifier(saved.getUserIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.BOOKMARKED)
+                    .entityType(ActivityEntityType.BOOKMARK)
+                    .entityIdentifier(saved.getIdentifier())
+                    .entityName(saved.getEntityType() + ":" + saved.getEntityIdentifier())
+                    .description("Bookmarked " + saved.getEntityType().name().toLowerCase())
+                    .metadata(Map.of(
+                            "entityType", saved.getEntityType().name(),
+                            "entityIdentifier", saved.getEntityIdentifier()
+                    ))
+                    .source("FRONTEND")
+                    .build());
+        }
+
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     // ================ CREATE ALL BOOKMARKS ===================== //
@@ -44,8 +76,30 @@ public class BookmarkController {
 
     // ================ DELETE BOOKMARK BY ID ===================== //
     @DeleteMapping("/{identifier}")
-    public ResponseEntity<?> deleteBookmarkById(@PathVariable String identifier) {
+    public ResponseEntity<?> deleteBookmarkById(@PathVariable String identifier, HttpServletRequest request) {
+        Bookmark existing = this.BOOKMARK_SERVICE_IMPL.findById(identifier).orElse(null);
+
         this.BOOKMARK_SERVICE_IMPL.deleteById(identifier);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated() && existing != null) {
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(ActivityActorType.STUDENT)
+                    .actorIdentifier(existing.getUserIdentifier())
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.REMOVED_BOOKMARK)
+                    .entityType(ActivityEntityType.BOOKMARK)
+                    .entityIdentifier(identifier)
+                    .entityName(existing.getEntityType() + ":" + existing.getEntityIdentifier())
+                    .description("Removed bookmark for " + existing.getEntityType().name().toLowerCase())
+                    .metadata(Map.of(
+                            "entityType", existing.getEntityType().name(),
+                            "entityIdentifier", existing.getEntityIdentifier()
+                    ))
+                    .source("FRONTEND")
+                    .build());
+        }
+
         return new ResponseEntity<>("Bookmark deleted successfully", HttpStatus.OK);
     }
 

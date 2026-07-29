@@ -1,14 +1,15 @@
 package com.classes.Backend.config;
 
+import java.util.List;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.servers.Server;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-import java.util.List;
 
 @Configuration
 public class OpenApiConfig {
@@ -22,13 +23,13 @@ public class OpenApiConfig {
                         .version("v1.0.0")
                         .contact(new Contact()
                                 .name("My Classes Team")
-                                .email("support@myclasses.com")
-                                .url("https://myclasses.com"))
+                                .email("support@myclasses.co.in")
+                                .url("https://myclasses.co.in"))
                         .license(new License()
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))
                 .servers(List.of(
                         new Server().url("http://localhost:8080").description("Local Development Server"),
-                        new Server().url("https://orca-app-s8tpj.ondigitalocean.app").description("Production Server")));
+                        new Server().url("https://api.myclasses.co.in").description("Production Server")));
     }
 }

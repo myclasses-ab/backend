@@ -1,14 +1,23 @@
 package com.classes.Backend.Controller.reviews;
 
+import com.classes.Backend.Domain.activity.ActivityActionType;
+import com.classes.Backend.Domain.activity.ActivityActorType;
+import com.classes.Backend.Domain.activity.ActivityEntityType;
 import com.classes.Backend.Domain.enums.Standard;
 import com.classes.Backend.Domain.reviews.Review;
+import com.classes.Backend.Service.activity.ActivityLogActorResolver;
+import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.activity.ResolvedActor;
 import com.classes.Backend.Service.reviews.ReviewServiceImpl;
+import com.classes.Backend.dto.activity.ActivityLogRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -16,11 +25,36 @@ import java.util.List;
 public class ReviewController {
 
     private final ReviewServiceImpl REVIEW_SERVICE_IMPL;
+    private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final ActivityLogActorResolver ACTOR_RESOLVER;
 
     // ================ CREATE REVIEW ===================== //
     @PostMapping
-    public ResponseEntity<?> saveReview(@RequestBody Review review) {
-        return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.save(review), HttpStatus.CREATED);
+    public ResponseEntity<?> saveReview(@RequestBody Review review, HttpServletRequest request) {
+        Review saved = this.REVIEW_SERVICE_IMPL.save(review);
+
+        ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
+        if (actor.isAuthenticated()) {
+            String actorId = saved.getUserIdentifier() != null ? saved.getUserIdentifier() : actor.getIdentifier();
+            ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                    .actorType(ActivityActorType.STUDENT)
+                    .actorIdentifier(actorId)
+                    .actorName(actor.getName())
+                    .actionType(ActivityActionType.SUBMITTED_REVIEW)
+                    .entityType(ActivityEntityType.REVIEW)
+                    .entityIdentifier(saved.getIdentifier())
+                    .entityName(saved.getReviewTitle())
+                    .instituteIdentifier(saved.getInstituteIdentifier())
+                    .description("Submitted a review" + (saved.getReviewTitle() != null ? ": " + saved.getReviewTitle() : ""))
+                    .metadata(Map.of(
+                            "rating", saved.getOverallRating() != null ? saved.getOverallRating().toString() : null,
+                            "isVerifiedStudent", saved.getIsVerifiedStudent()
+                    ))
+                    .source("FRONTEND")
+                    .build());
+        }
+
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
     }
 
     // ================ CREATE ALL REVIEWS ===================== //
