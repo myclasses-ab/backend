@@ -1,12 +1,12 @@
 package com.classes.Backend.config;
 
+import java.util.Arrays;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
 
 @Configuration
 public class WebConfig {
@@ -20,7 +20,9 @@ public class WebConfig {
                 "http://localhost:3002",
                 "http://localhost:5173",
                 "https://myclasses-console.web.app",
-                "https://frontend-two-gray-7k7ncc9ipq.vercel.app"
+                "https://frontend-two-gray-7k7ncc9ipq.vercel.app",
+                "https://www.myclasses.co.in",
+                "https://myclasses.co.in"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
