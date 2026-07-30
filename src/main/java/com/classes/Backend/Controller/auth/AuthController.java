@@ -11,6 +11,7 @@ import com.classes.Backend.Domain.users.UserInstituteAssociation;
 import com.classes.Backend.Service.activity.ActivityLogService;
 import com.classes.Backend.Service.auth.JwtService;
 import com.classes.Backend.Service.institute.InstituteServiceImpl;
+import com.classes.Backend.Service.mail.MailService;
 import com.classes.Backend.Service.users.UserInstituteAssociationServiceImpl;
 import com.classes.Backend.Service.users.UserService;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
@@ -49,6 +50,7 @@ public class AuthController {
     private final InstituteServiceImpl INSTITUTE_SERVICE_IMPL;
     private final UserInstituteAssociationServiceImpl USER_INSTITUTE_ASSOCIATION_SERVICE_IMPL;
     private final ActivityLogService ACTIVITY_LOG_SERVICE;
+    private final MailService MAIL_SERVICE;
 
     // In-memory OTP storage with TTL cleanup
     private final ConcurrentHashMap<String, OtpEntry> OTP_STORE = new ConcurrentHashMap<>();
@@ -171,7 +173,10 @@ public class AuthController {
 
         USER_INSTITUTE_ASSOCIATION_SERVICE_IMPL.save(association);
 
-        // 5. Generate token
+        // 5. Send welcome email (async — will not block signup response)
+        MAIL_SERVICE.sendInstituteWelcomeEmail(savedUser.getEmail(), savedInstitute.getName(), savedUser.getEmail());
+
+        // 6. Generate token
         UserDetails userDetails = USER_DETAILS_SERVICE.loadUserByUsername(savedUser.getEmail());
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", savedUser.getIdentifier());

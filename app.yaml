@@ -71,6 +71,11 @@ services:
         value: REPLACE_WITH_AWS_SECRET_KEY
         type: SECRET
 
+      # --- Zoho Mail ---
+      - key: ZOHO_MAIL_PASSWORD
+        value: REPLACE_WITH_ZOHO_APP_PASSWORD
+        type: SECRET
+
       # --- File Upload ---
       - key: SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE
         value: 10MB
