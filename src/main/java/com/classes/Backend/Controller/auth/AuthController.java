@@ -9,9 +9,12 @@ import com.classes.Backend.Domain.institute.Institute;
 import com.classes.Backend.Domain.users.User;
 import com.classes.Backend.Domain.users.UserInstituteAssociation;
 import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.auth.InstituteSignupService;
 import com.classes.Backend.Service.auth.JwtService;
 import com.classes.Backend.Service.institute.InstituteServiceImpl;
 import com.classes.Backend.Service.mail.MailService;
+import com.classes.Backend.Service.messagecentral.MessageCentralException;
+import com.classes.Backend.Service.messagecentral.MessageCentralService;
 import com.classes.Backend.Service.users.UserInstituteAssociationServiceImpl;
 import com.classes.Backend.Service.users.UserService;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
@@ -51,17 +54,19 @@ public class AuthController {
     private final UserInstituteAssociationServiceImpl USER_INSTITUTE_ASSOCIATION_SERVICE_IMPL;
     private final ActivityLogService ACTIVITY_LOG_SERVICE;
     private final MailService MAIL_SERVICE;
+    private final MessageCentralService MESSAGE_CENTRAL_SERVICE;
+    private final InstituteSignupService INSTITUTE_SIGNUP_SERVICE;
 
     // In-memory OTP storage with TTL cleanup
     private final ConcurrentHashMap<String, OtpEntry> OTP_STORE = new ConcurrentHashMap<>();
     private final ScheduledExecutorService OTP_CLEANUP_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private static class OtpEntry {
-        String otp;
+        String verificationId;
         long expiresAt;
 
-        OtpEntry(String otp, long expiresAt) {
-            this.otp = otp;
+        OtpEntry(String verificationId, long expiresAt) {
+            this.verificationId = verificationId;
             this.expiresAt = expiresAt;
         }
     }
@@ -131,18 +136,44 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody SignupRequest request) {
+        String normalizedPhone = normalizeSignupPhone(request.getPhone());
+
+        InstituteSignupService.PendingSignup pending;
+        try {
+            pending = INSTITUTE_SIGNUP_SERVICE.getPending(request.getEmail());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Please complete email and phone verification before signing up."));
+        }
+
+        if (!pending.emailVerified || !pending.phoneVerified) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Please verify both email and phone before completing signup."));
+        }
+
+        if (!pending.email.equalsIgnoreCase(request.getEmail())
+                || !pending.phone.equals(normalizedPhone)
+                || !pending.instituteName.equals(request.getInstituteName())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Signup details do not match the verified session."));
+        }
+
         if (USER_SERVICE.existsByEmail(request.getEmail())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Email already registered"));
+        }
+        if (USER_SERVICE.existsByPhone(normalizedPhone)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Phone number already registered"));
         }
 
         // 1. Create User
         User user = new User();
         user.setFullName(request.getInstituteName());
         user.setEmail(request.getEmail());
+        user.setPhone(normalizedPhone);
         user.setPasswordHash(PASSWORD_ENCODER.encode(request.getPassword()));
         user.setRole(UserRole.INSTITUTE_ADMIN);
-        user.setEmailVerified(false);
-        user.setPhoneVerified(false);
+        user.setEmailVerified(true);
+        user.setPhoneVerified(true);
 
         User savedUser = USER_SERVICE.save(user);
 
@@ -161,6 +192,7 @@ public class AuthController {
         institute.setName(request.getInstituteName());
         institute.setSlug(slug);  // Slug for SEO-friendly URLs
         institute.setEmail(request.getEmail());
+        institute.setPhonePrimary(normalizedPhone);
         institute.setCreatedBy(savedUser.getIdentifier());
 
         Institute savedInstitute = INSTITUTE_SERVICE_IMPL.save(institute);
@@ -173,10 +205,13 @@ public class AuthController {
 
         USER_INSTITUTE_ASSOCIATION_SERVICE_IMPL.save(association);
 
-        // 5. Send welcome email (async — will not block signup response)
+        // 5. Remove pending signup
+        INSTITUTE_SIGNUP_SERVICE.removePending(request.getEmail());
+
+        // 6. Send welcome email (async — will not block signup response)
         MAIL_SERVICE.sendInstituteWelcomeEmail(savedUser.getEmail(), savedInstitute.getName(), savedUser.getEmail());
 
-        // 6. Generate token
+        // 7. Generate token
         UserDetails userDetails = USER_DETAILS_SERVICE.loadUserByUsername(savedUser.getEmail());
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", savedUser.getIdentifier());
@@ -184,6 +219,98 @@ public class AuthController {
 
         String token = JWT_SERVICE.generateToken(claims, userDetails);
         return ResponseEntity.status(HttpStatus.CREATED).body(new AuthResponse(token, savedUser));
+    }
+
+    @PostMapping("/signup/initiate")
+    public ResponseEntity<?> initiateSignup(@RequestBody com.classes.Backend.dto.auth.InstituteSignupInitiateRequest request) {
+        try {
+            String normalizedPhone = normalizeSignupPhone(request.getPhone());
+            if (USER_SERVICE.existsByEmail(request.getEmail())) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Email already registered"));
+            }
+            if (USER_SERVICE.existsByPhone(normalizedPhone)) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "Phone number already registered"));
+            }
+
+            InstituteSignupService.PendingSignup pending = INSTITUTE_SIGNUP_SERVICE.initiate(request);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Verification code sent to your email. Please verify your email first.",
+                    "email", maskEmail(pending.email),
+                    "phone", maskPhone(pending.phone),
+                    "expiresInMinutes", 10
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (MessageCentralException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/signup/verify-email")
+    public ResponseEntity<?> verifySignupEmail(@RequestBody com.classes.Backend.dto.auth.InstituteSignupVerifyRequest request) {
+        try {
+            INSTITUTE_SIGNUP_SERVICE.verifyEmail(request.getEmail(), request.getCode());
+            return ResponseEntity.ok(Map.of(
+                    "message", "Email verified successfully. You can now request a phone OTP.",
+                    "emailVerified", true
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/signup/send-phone-otp")
+    public ResponseEntity<?> sendSignupPhoneOtp(@RequestBody Map<String, String> request) {
+        try {
+            InstituteSignupService.PendingSignup pending = INSTITUTE_SIGNUP_SERVICE.sendPhoneOtp(request.get("email"));
+            return ResponseEntity.ok(Map.of(
+                    "message", "Phone OTP sent.",
+                    "phone", maskPhone(pending.phone),
+                    "expiresInMinutes", 10
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (MessageCentralException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/signup/verify-phone")
+    public ResponseEntity<?> verifySignupPhone(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String otp = request.get("otp");
+        try {
+            INSTITUTE_SIGNUP_SERVICE.verifyPhone(email, otp);
+            InstituteSignupService.PendingSignup pending = INSTITUTE_SIGNUP_SERVICE.getPending(email);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Phone verified successfully.",
+                    "emailVerified", pending.emailVerified,
+                    "phoneVerified", true
+            ));
+        } catch (IllegalArgumentException | IllegalStateException | MessageCentralException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/signup/resend-email")
+    public ResponseEntity<?> resendSignupEmail(@RequestBody Map<String, String> request) {
+        try {
+            INSTITUTE_SIGNUP_SERVICE.resendEmailCode(request.get("email"));
+            return ResponseEntity.ok(Map.of("message", "Email verification code resent."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/signup/resend-phone")
+    public ResponseEntity<?> resendSignupPhone(@RequestBody Map<String, String> request) {
+        try {
+            INSTITUTE_SIGNUP_SERVICE.resendPhoneOtp(request.get("email"));
+            return ResponseEntity.ok(Map.of("message", "Phone OTP resent."));
+        } catch (IllegalArgumentException | IllegalStateException | MessageCentralException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/super-admin-login")
@@ -292,16 +419,28 @@ public class AuthController {
                     .body(Map.of("error", "Please wait before requesting a new OTP"));
         }
 
-        // Hardcoded OTP for demo: 123456
-        String otp = "123456";
+        // Send real OTP via Message Central
+        String mobileNumber = phone.startsWith("+") ? phone.substring(1) : phone;
+        if (mobileNumber.startsWith(countryCode())) {
+            mobileNumber = mobileNumber.substring(countryCode().length());
+        }
+
+        String verificationId;
+        try {
+            verificationId = MESSAGE_CENTRAL_SERVICE.sendOtp(mobileNumber);
+        } catch (MessageCentralException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+
         long expiry = System.currentTimeMillis() + 5 * 60 * 1000; // 5 minutes
-        OTP_STORE.put(phone, new OtpEntry(otp, expiry));
+        OTP_STORE.put(phone, new OtpEntry(verificationId, expiry));
 
         // Schedule cleanup
         final String phoneKey = phone;
         OTP_CLEANUP_EXECUTOR.schedule(() -> OTP_STORE.remove(phoneKey), 5, TimeUnit.MINUTES);
 
-        System.out.println("[OTP] Phone: " + phone + " | OTP: " + otp);
+        System.out.println("[OTP] Phone: " + phone + " | verificationId: " + verificationId);
 
         boolean isRegistered = USER_SERVICE.findByPhone(phone).isPresent();
 
@@ -332,7 +471,19 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "OTP expired or not found"));
         }
 
-        if (!entry.otp.equals(otp)) {
+        String mobileNumber = phone.startsWith("+") ? phone.substring(1) : phone;
+        if (mobileNumber.startsWith(countryCode())) {
+            mobileNumber = mobileNumber.substring(countryCode().length());
+        }
+
+        boolean verified;
+        try {
+            verified = MESSAGE_CENTRAL_SERVICE.verifyOtp(mobileNumber, otp, entry.verificationId);
+        } catch (MessageCentralException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        }
+
+        if (!verified) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid OTP"));
         }
 
@@ -385,6 +536,10 @@ public class AuthController {
         return ResponseEntity.ok(new com.classes.Backend.dto.auth.PhoneAuthResponse(token, user, isNewUser));
     }
 
+    private String countryCode() {
+        return "91";
+    }
+
     private String generateSlug(String instituteName) {
         if (instituteName == null || instituteName.trim().isEmpty()) {
             return "institute";
@@ -419,5 +574,29 @@ public class AuthController {
             case INSTITUTE_ADMIN, INSTITUTE_STAFF -> "CONSOLE";
             default -> "FRONTEND";
         };
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return email;
+        String[] parts = email.split("@");
+        String local = parts[0];
+        String domain = parts[1];
+        String maskedLocal = local.length() <= 2 ? local
+                : local.charAt(0) + "***" + local.charAt(local.length() - 1);
+        return maskedLocal + "@" + domain;
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 8) return phone;
+        return phone.substring(0, 4) + " **** " + phone.substring(phone.length() - 2);
+    }
+
+    private String normalizeSignupPhone(String phone) {
+        if (phone == null) return null;
+        phone = phone.trim().replaceAll("\\s+", "").replaceAll("[^0-9+]", "");
+        if (!phone.startsWith("+")) {
+            phone = "+91" + phone;
+        }
+        return phone;
     }
 }
