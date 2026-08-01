@@ -9,6 +9,7 @@ import com.classes.Backend.Domain.institute.Institute;
 import com.classes.Backend.Domain.users.User;
 import com.classes.Backend.Domain.users.UserInstituteAssociation;
 import com.classes.Backend.Service.activity.ActivityLogService;
+import com.classes.Backend.Service.auth.ForgotPasswordService;
 import com.classes.Backend.Service.auth.InstituteSignupService;
 import com.classes.Backend.Service.auth.JwtService;
 import com.classes.Backend.Service.institute.InstituteServiceImpl;
@@ -19,6 +20,7 @@ import com.classes.Backend.Service.users.UserInstituteAssociationServiceImpl;
 import com.classes.Backend.Service.users.UserService;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
 import com.classes.Backend.dto.auth.AuthResponse;
+import com.classes.Backend.dto.auth.ChangePasswordRequest;
 import com.classes.Backend.dto.auth.LoginRequest;
 import com.classes.Backend.dto.auth.RegisterRequest;
 import com.classes.Backend.dto.auth.SignupRequest;
@@ -57,6 +59,7 @@ public class AuthController {
     private final MailService MAIL_SERVICE;
     private final MessageCentralService MESSAGE_CENTRAL_SERVICE;
     private final InstituteSignupService INSTITUTE_SIGNUP_SERVICE;
+    private final ForgotPasswordService FORGOT_PASSWORD_SERVICE;
 
     // In-memory OTP storage with TTL cleanup
     private final ConcurrentHashMap<String, OtpEntry> OTP_STORE = new ConcurrentHashMap<>();
@@ -312,6 +315,116 @@ public class AuthController {
         } catch (IllegalArgumentException | IllegalStateException | MessageCentralException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<?> sendForgotPasswordOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
+        try {
+            FORGOT_PASSWORD_SERVICE.sendOtp(email);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Password reset code sent to your email.",
+                    "email", maskEmail(email.trim().toLowerCase()),
+                    "expiresInMinutes", 10
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/forgot-password/resend-otp")
+    public ResponseEntity<?> resendForgotPasswordOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+        }
+        try {
+            FORGOT_PASSWORD_SERVICE.resendOtp(email);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Password reset code resent.",
+                    "email", maskEmail(email.trim().toLowerCase()),
+                    "expiresInMinutes", 10
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<?> verifyForgotPasswordOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String code = request.get("code");
+        if (email == null || email.isBlank() || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email and code are required"));
+        }
+        try {
+            boolean verified = FORGOT_PASSWORD_SERVICE.verifyOtp(email, code);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Code verified successfully.",
+                    "verified", verified
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String code = request.get("code");
+        String newPassword = request.get("newPassword");
+
+        if (email == null || email.isBlank() || code == null || code.isBlank() || newPassword == null || newPassword.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email, code, and new password are required"));
+        }
+        if (newPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+        }
+
+        try {
+            FORGOT_PASSWORD_SERVICE.resetPassword(email, code, newPassword);
+            return ResponseEntity.ok(Map.of("message", "Password reset successfully. Please log in with your new password."));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestHeader("Authorization") String authHeader,
+                                            @RequestBody ChangePasswordRequest request) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Missing or invalid token"));
+        }
+
+        String token = authHeader.substring(7);
+        String username = JWT_SERVICE.extractUsername(token);
+
+        User user = USER_SERVICE.findByEmail(username)
+                .orElseGet(() -> USER_SERVICE.findByPhone(username)
+                        .orElseThrow(() -> new BadCredentialsException("User not found")));
+
+        if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()
+                || request.getNewPassword() == null || request.getNewPassword().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Current password and new password are required"));
+        }
+        if (request.getNewPassword().length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "New password must be at least 6 characters"));
+        }
+        if (!PASSWORD_ENCODER.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Current password is incorrect"));
+        }
+
+        user.setPasswordHash(PASSWORD_ENCODER.encode(request.getNewPassword()));
+        USER_SERVICE.save(user);
+
+        return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
     }
 
     @PostMapping("/super-admin-login")

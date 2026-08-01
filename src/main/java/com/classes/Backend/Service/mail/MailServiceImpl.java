@@ -86,6 +86,30 @@ public class MailServiceImpl implements MailService {
         }
     }
 
+    @Override
+    @Async("mailTaskExecutor")
+    public void sendPasswordResetOtp(String to, String name, String code) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message,
+                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                    StandardCharsets.UTF_8.name()
+            );
+
+            helper.setFrom(fromAddress);
+            helper.setTo(to);
+            helper.setReplyTo(supportEmail);
+            helper.setSubject("Reset your MyClasses password");
+            helper.setText(buildPasswordResetHtml(name, code), true);
+
+            mailSender.send(message);
+            log.info("Password reset OTP sent to {}", to);
+        } catch (MailException | MessagingException ex) {
+            log.error("Failed to send password reset OTP to {}: {}", to, ex.getMessage(), ex);
+        }
+    }
+
     private String buildWelcomeHtml(String instituteName, String email) {
         String escapedInstituteName = escapeHtml(instituteName);
         String escapedEmail = escapeHtml(email);
@@ -304,6 +328,101 @@ public class MailServiceImpl implements MailService {
                 .replace("{{logoBlock}}", logoBlock)
                 .replace("{{brandColor}}", escapedBrandColor)
                 .replace("{{instituteName}}", escapedInstituteName)
+                .replace("{{code}}", escapedCode)
+                .replace("{{supportEmail}}", escapedSupportEmail)
+                .replace("{{year}}", year);
+    }
+
+    private String buildPasswordResetHtml(String name, String code) {
+        String escapedName = escapeHtml(name);
+        String escapedCode = escapeHtml(code);
+        String escapedSupportEmail = escapeHtml(supportEmail);
+        String escapedBrandColor = escapeHtml(brandColor);
+        String escapedLogoUrl = escapeHtml(logoUrl);
+        String year = String.valueOf(Year.now().getValue());
+
+        String logoBlock = logoUrl != null && !logoUrl.isBlank()
+                ? "<img src=\"" + escapedLogoUrl + "\" alt=\"MyClasses\" width=\"140\" style=\"max-width:140px; height:auto; display:block; margin:0 auto;\" />"
+                : "<div style=\"font-size:24px; font-weight:800; color:" + escapedBrandColor + ";\">MyClasses</div>";
+
+        String template = """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="UTF-8" />
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                  <meta name="color-scheme" content="light" />
+                  <meta name="supported-color-schemes" content="light" />
+                  <title>Reset your password</title>
+                  <style>
+                    @media only screen and (max-width: 600px) {
+                      .container { width: 100% !important; padding: 0 16px !important; }
+                      .inner { padding: 24px !important; }
+                      .hero { padding: 40px 24px !important; }
+                    }
+                  </style>
+                </head>
+                <body style="margin:0; padding:0; background-color:#f3f4f6; font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f3f4f6;">
+                    <tr>
+                      <td align="center" style="padding:0;">
+                        <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; width:600px; background-color:#ffffff; overflow:hidden; box-shadow:0 10px 40px rgba(0,0,0,0.08);">
+                          <tr>
+                            <td style="padding:32px 40px 16px; text-align:center;" class="inner">
+                              {{logoBlock}}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td class="hero" style="padding:48px 40px; text-align:center; background:linear-gradient(135deg, {{brandColor}} 0%, #7c3aed 100%); color:#ffffff;">
+                              <h1 style="margin:0 0 12px; font-size:30px; font-weight:800; line-height:1.2;">Reset your password</h1>
+                              <p style="margin:0; font-size:16px; line-height:1.6; opacity:0.95;">Use the code below to create a new password for your account.</p>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td class="inner" style="padding:40px; text-align:center;">
+                              <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#374151; text-align:left;">
+                                Hi <strong>{{name}}</strong>,
+                              </p>
+                              <p style="margin:0 0 32px; font-size:16px; line-height:1.6; color:#4b5563; text-align:left;">
+                                We received a request to reset the password for your <strong>MyClasses</strong> account. Please enter the following 6-digit code to set a new password.
+                              </p>
+                              <div style="margin:32px 0; padding:24px; background-color:#f9fafb; border-radius:12px; border:1px dashed #d1d5db; display:inline-block;">
+                                <p style="margin:0 0 8px; font-size:13px; color:#6b7280; text-transform:uppercase; letter-spacing:1px;">Password reset code</p>
+                                <p style="margin:0; font-size:36px; font-weight:800; letter-spacing:8px; color:#111827;">{{code}}</p>
+                              </div>
+                              <p style="margin:24px 0 0; font-size:14px; line-height:1.5; color:#6b7280;">
+                                This code expires in 10 minutes. If you didn't request a password reset, please ignore this email or contact <a href="mailto:{{supportEmail}}" style="color:{{brandColor}}; text-decoration:none; font-weight:600;">{{supportEmail}}</a>.
+                              </p>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:0 40px;">
+                              <div style="height:1px; background-color:#e5e7eb;"></div>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td class="inner" style="padding:32px 40px; text-align:center;">
+                              <p style="margin:0 0 8px; font-size:13px; color:#9ca3af;">
+                                MyClasses · Empowering Education
+                              </p>
+                              <p style="margin:0; font-size:12px; color:#9ca3af; line-height:1.5;">
+                                © {{year}} MyClasses. All rights reserved.<br />
+                                Need help? Contact us at <a href="mailto:{{supportEmail}}" style="color:{{brandColor}}; text-decoration:none;">{{supportEmail}}</a>
+                              </p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </body>
+                </html>
+                """;
+
+        return template
+                .replace("{{logoBlock}}", logoBlock)
+                .replace("{{brandColor}}", escapedBrandColor)
+                .replace("{{name}}", escapedName)
                 .replace("{{code}}", escapedCode)
                 .replace("{{supportEmail}}", escapedSupportEmail)
                 .replace("{{year}}", year);

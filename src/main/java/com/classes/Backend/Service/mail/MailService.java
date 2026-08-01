@@ -19,4 +19,13 @@ public interface MailService {
      * @param code          the verification code
      */
     void sendEmailVerificationCode(String to, String instituteName, String code);
+
+    /**
+     * Sends a one-time password reset code to an existing user.
+     *
+     * @param to   recipient email address
+     * @param name display name of the user
+     * @param code the verification code
+     */
+    void sendPasswordResetOtp(String to, String name, String code);
 }
