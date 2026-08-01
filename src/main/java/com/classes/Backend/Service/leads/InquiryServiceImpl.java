@@ -137,6 +137,29 @@ public class InquiryServiceImpl implements InquiryService {
         return this.INQUIRY_REPOSITORY.existsById(identifier);
     }
 
+    // ================ UPDATE INQUIRY ===================== //
+    @Override
+    @Transactional
+    public Inquiry update(String identifier, Inquiry inquiry) {
+        Inquiry existing = this.INQUIRY_REPOSITORY.findById(identifier)
+                .orElseThrow(() -> new RuntimeException("Inquiry with identifier '" + identifier + "' not found"));
+
+        if (inquiry.getStatus() != null) {
+            existing.setStatus(inquiry.getStatus());
+        }
+        if (inquiry.getInstituteNotes() != null) {
+            existing.setInstituteNotes(inquiry.getInstituteNotes());
+        }
+        if (inquiry.getAssignedTo() != null) {
+            existing.setAssignedTo(inquiry.getAssignedTo());
+        }
+        if (inquiry.getContactUnlocked() != null) {
+            existing.setContactUnlocked(inquiry.getContactUnlocked());
+        }
+
+        return this.INQUIRY_REPOSITORY.save(existing);
+    }
+
     // ================ FIND BY INSTITUTE IDENTIFIER ===================== //
     @Override
     public List<Inquiry> findByInstituteIdentifier(String instituteIdentifier) {

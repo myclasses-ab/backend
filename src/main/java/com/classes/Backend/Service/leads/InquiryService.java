@@ -17,6 +17,9 @@ public interface InquiryService {
     void deleteById(String identifier);
     boolean existsById(String identifier);
 
+    // ================ PARTIAL UPDATE ===================== //
+    Inquiry update(String identifier, Inquiry inquiry);
+
     // ================ CUSTOM FINDER METHODS ===================== //
     List<Inquiry> findByInstituteIdentifier(String instituteIdentifier);
     List<Inquiry> findByBranchIdentifier(String branchIdentifier);

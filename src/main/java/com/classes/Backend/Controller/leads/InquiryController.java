@@ -137,8 +137,7 @@ public class InquiryController {
         if (!this.INQUIRY_SERVICE_IMPL.existsById(identifier)) {
             return new ResponseEntity<>("InquirySource not found", HttpStatus.NOT_FOUND);
         }
-        inquiry.setIdentifier(identifier);
-        return new ResponseEntity<>(this.INQUIRY_SERVICE_IMPL.save(inquiry), HttpStatus.OK);
+        return new ResponseEntity<>(this.INQUIRY_SERVICE_IMPL.update(identifier, inquiry), HttpStatus.OK);
     }
 
     // ================ FIND BY INSTITUTE IDENTIFIER ===================== //
