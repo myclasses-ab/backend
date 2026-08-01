@@ -91,6 +91,11 @@ public class User {
     @Column(name = "institute_name")
     private List<String> visitedInstituteNames;
 
+    @ElementCollection
+    @CollectionTable(name = "user_booked_demo_course_identifiers", joinColumns = @JoinColumn(name = "user_identifier"))
+    @Column(name = "course_identifier")
+    private List<String> bookedDemoCourseIdentifiers;
+
     @Column(name = "is_active")
     private Boolean isActive = true;
 

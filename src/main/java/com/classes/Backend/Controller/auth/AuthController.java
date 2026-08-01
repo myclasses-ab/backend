@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
@@ -373,6 +374,51 @@ public class AuthController {
         User user = USER_SERVICE.findByEmail(username)
                 .orElseGet(() -> USER_SERVICE.findByPhone(username)
                         .orElseThrow(() -> new BadCredentialsException("User not found")));
+
+        return ResponseEntity.ok(user);
+    }
+
+    @PostMapping("/me/book-demo")
+    public ResponseEntity<?> bookDemo(@RequestHeader("Authorization") String authHeader,
+                                       @RequestBody Map<String, String> request) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Missing or invalid token"));
+        }
+
+        String courseIdentifier = request.get("courseIdentifier");
+        if (courseIdentifier == null || courseIdentifier.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "courseIdentifier is required"));
+        }
+
+        String token = authHeader.substring(7);
+        String username = JWT_SERVICE.extractUsername(token);
+
+        if ("aditya@gmail.com".equals(username)) {
+            User user = new User();
+            user.setIdentifier("super-admin");
+            user.setFullName("Super Admin");
+            user.setEmail("aditya@gmail.com");
+            user.setRole(UserRole.SUPER_ADMIN);
+            user.setIsActive(true);
+            user.setEmailVerified(true);
+            user.setPhoneVerified(true);
+            user.setPreferredLanguage("English");
+            return ResponseEntity.ok(user);
+        }
+
+        User user = USER_SERVICE.findByEmail(username)
+                .orElseGet(() -> USER_SERVICE.findByPhone(username)
+                        .orElseThrow(() -> new BadCredentialsException("User not found")));
+
+        List<String> booked = user.getBookedDemoCourseIdentifiers();
+        if (booked == null) {
+            booked = new java.util.ArrayList<>();
+        }
+        if (!booked.contains(courseIdentifier)) {
+            booked.add(courseIdentifier);
+            user.setBookedDemoCourseIdentifiers(booked);
+            USER_SERVICE.save(user);
+        }
 
         return ResponseEntity.ok(user);
     }

@@ -14,6 +14,7 @@ import com.classes.Backend.Service.auth.JwtService;
 import com.classes.Backend.Service.leads.InquiryServiceImpl;
 import com.classes.Backend.Service.users.UserService;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
+import com.classes.Backend.dto.leads.InquiryUpdateRequest;
 import com.classes.Backend.dto.leads.InstituteInquiryResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -133,11 +134,11 @@ public class InquiryController {
 
     // ================ UPDATE INQUIRYSOURCE BY ID ===================== //
     @PutMapping("/{identifier}")
-    public ResponseEntity<?> updateInquiryById(@PathVariable String identifier, @RequestBody Inquiry inquiry) {
+    public ResponseEntity<?> updateInquiryById(@PathVariable String identifier, @RequestBody InquiryUpdateRequest request) {
         if (!this.INQUIRY_SERVICE_IMPL.existsById(identifier)) {
             return new ResponseEntity<>("InquirySource not found", HttpStatus.NOT_FOUND);
         }
-        return new ResponseEntity<>(this.INQUIRY_SERVICE_IMPL.update(identifier, inquiry), HttpStatus.OK);
+        return new ResponseEntity<>(this.INQUIRY_SERVICE_IMPL.update(identifier, request), HttpStatus.OK);
     }
 
     // ================ FIND BY INSTITUTE IDENTIFIER ===================== //

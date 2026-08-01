@@ -3,6 +3,7 @@ package com.classes.Backend.Service.leads;
 import com.classes.Backend.Domain.leads.Inquiry;
 import com.classes.Backend.Domain.enums.InquirySource;
 import com.classes.Backend.Domain.enums.InquiryStatus;
+import com.classes.Backend.dto.leads.InquiryUpdateRequest;
 import com.classes.Backend.dto.leads.InstituteInquiryResponse;
 
 import java.util.List;
@@ -18,7 +19,7 @@ public interface InquiryService {
     boolean existsById(String identifier);
 
     // ================ PARTIAL UPDATE ===================== //
-    Inquiry update(String identifier, Inquiry inquiry);
+    Inquiry update(String identifier, InquiryUpdateRequest request);
 
     // ================ CUSTOM FINDER METHODS ===================== //
     List<Inquiry> findByInstituteIdentifier(String instituteIdentifier);

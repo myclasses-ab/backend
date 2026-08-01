@@ -16,4 +16,5 @@ public interface InquiryRepository extends JpaRepository<Inquiry, String> {
     List<Inquiry> findBySource(InquirySource source);
     List<Inquiry> findByAssignedTo(String assignedTo);
     List<Inquiry> findByInstituteIdentifierAndStatus(String instituteIdentifier, InquiryStatus status);
+    List<Inquiry> findByInstituteIdentifierAndNameAndPhone(String instituteIdentifier, String name, String phone);
 }

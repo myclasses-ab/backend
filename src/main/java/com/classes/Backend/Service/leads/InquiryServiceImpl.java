@@ -16,6 +16,7 @@ import com.classes.Backend.Service.institute.InstituteService;
 import com.classes.Backend.Service.notification.NotificationService;
 import com.classes.Backend.Service.subscription.CreditServiceImpl;
 import com.classes.Backend.Service.users.UserInstituteAssociationService;
+import com.classes.Backend.dto.leads.InquiryUpdateRequest;
 import com.classes.Backend.dto.leads.InstituteInquiryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -140,21 +141,21 @@ public class InquiryServiceImpl implements InquiryService {
     // ================ UPDATE INQUIRY ===================== //
     @Override
     @Transactional
-    public Inquiry update(String identifier, Inquiry inquiry) {
+    public Inquiry update(String identifier, InquiryUpdateRequest request) {
         Inquiry existing = this.INQUIRY_REPOSITORY.findById(identifier)
                 .orElseThrow(() -> new RuntimeException("Inquiry with identifier '" + identifier + "' not found"));
 
-        if (inquiry.getStatus() != null) {
-            existing.setStatus(inquiry.getStatus());
+        if (request.getStatus() != null) {
+            existing.setStatus(request.getStatus());
         }
-        if (inquiry.getInstituteNotes() != null) {
-            existing.setInstituteNotes(inquiry.getInstituteNotes());
+        if (request.getInstituteNotes() != null) {
+            existing.setInstituteNotes(request.getInstituteNotes());
         }
-        if (inquiry.getAssignedTo() != null) {
-            existing.setAssignedTo(inquiry.getAssignedTo());
+        if (request.getAssignedTo() != null) {
+            existing.setAssignedTo(request.getAssignedTo());
         }
-        if (inquiry.getContactUnlocked() != null) {
-            existing.setContactUnlocked(inquiry.getContactUnlocked());
+        if (request.getContactUnlocked() != null) {
+            existing.setContactUnlocked(request.getContactUnlocked());
         }
 
         return this.INQUIRY_REPOSITORY.save(existing);
@@ -236,8 +237,14 @@ public class InquiryServiceImpl implements InquiryService {
             throw new IllegalArgumentException("Inquiry does not belong to the specified institute");
         }
 
-        Boolean unlocked = inquiry.getContactUnlocked();
-        if (unlocked != null && unlocked) {
+        List<Inquiry> sameContactInquiries = this.INQUIRY_REPOSITORY
+                .findByInstituteIdentifierAndNameAndPhone(instituteIdentifier, inquiry.getName(), inquiry.getPhone());
+
+        List<Inquiry> lockedInquiries = sameContactInquiries.stream()
+                .filter(i -> !Boolean.TRUE.equals(i.getContactUnlocked()))
+                .toList();
+
+        if (lockedInquiries.isEmpty()) {
             throw new IllegalStateException("Inquiry is already unlocked");
         }
 
@@ -249,13 +256,16 @@ public class InquiryServiceImpl implements InquiryService {
                 inquiryIdentifier
         );
 
-        inquiry.setContactUnlocked(true);
-        inquiry.setUnlockedAt(LocalDateTime.now());
-        inquiry.setUnlockedBy(unlockedByUserIdentifier);
-        Inquiry saved = this.INQUIRY_REPOSITORY.save(inquiry);
+        LocalDateTime now = LocalDateTime.now();
+        for (Inquiry lockedInquiry : lockedInquiries) {
+            lockedInquiry.setContactUnlocked(true);
+            lockedInquiry.setUnlockedAt(now);
+            lockedInquiry.setUnlockedBy(unlockedByUserIdentifier);
+        }
+        this.INQUIRY_REPOSITORY.saveAll(lockedInquiries);
 
-        String courseName = loadCourseNames(instituteIdentifier).getOrDefault(saved.getCourseIdentifier(), null);
-        return InstituteInquiryResponse.fromUnmasked(saved, courseName);
+        String courseName = loadCourseNames(instituteIdentifier).getOrDefault(inquiry.getCourseIdentifier(), null);
+        return InstituteInquiryResponse.fromUnmasked(inquiry, courseName);
     }
 
     // ================ HELPER METHODS ===================== //
