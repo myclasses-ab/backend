@@ -116,4 +116,10 @@ public class ReviewController {
     public ResponseEntity<?> findByIsVerifiedStudentTrue() {
         return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.findByIsVerifiedStudentTrue(), HttpStatus.OK);
     }
+
+    // ================ GET RATING SUMMARY BY INSTITUTE IDENTIFIER ===================== //
+    @GetMapping("/institute/{instituteIdentifier}/rating-summary")
+    public ResponseEntity<?> getRatingSummaryByInstituteIdentifier(@PathVariable String instituteIdentifier) {
+        return new ResponseEntity<>(this.REVIEW_SERVICE_IMPL.getRatingSummary(instituteIdentifier), HttpStatus.OK);
+    }
 }

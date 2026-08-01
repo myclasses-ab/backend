@@ -14,7 +14,9 @@ import java.util.UUID;
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = false)
-@Table(name = "reviews")
+@Table(name = "reviews", indexes = {
+        @Index(name = "idx_reviews_institute_identifier", columnList = "institute_identifier")
+})
 public class Review {
 
     @Id

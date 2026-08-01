@@ -1,16 +1,17 @@
 package com.classes.Backend.Repository.institute;
 
-import com.classes.Backend.Domain.institute.Institute;
-import com.classes.Backend.Domain.enums.InstituteType;
-import com.classes.Backend.Domain.enums.OwnershipType;
-import com.classes.Backend.Domain.enums.SubscriptionTier;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
+import com.classes.Backend.Domain.enums.InstituteType;
+import com.classes.Backend.Domain.enums.OwnershipType;
+import com.classes.Backend.Domain.enums.SubscriptionTier;
+import com.classes.Backend.Domain.institute.Institute;
 
 public interface InstituteRepository extends JpaRepository<Institute, String> {
     Optional<Institute> findBySlug(String slug);
@@ -36,7 +37,6 @@ public interface InstituteRepository extends JpaRepository<Institute, String> {
           AND (:maxFee IS NULL OR ic.fee <= :maxFee)
           AND (:minRating IS NULL OR i.average_rating >= :minRating)
           AND (:type IS NULL OR i.type = :type)
-          AND (:subscriptionTier IS NULL OR i.subscription_tier = :subscriptionTier)
           AND (:isVerified IS NULL OR i.is_verified = :isVerified)
           AND (:isFeatured IS NULL OR i.is_featured = :isFeatured)
           AND (:hasHostel IS NULL OR f.has_hostel = :hasHostel)
@@ -49,7 +49,6 @@ public interface InstituteRepository extends JpaRepository<Institute, String> {
         @Param("maxFee") BigDecimal maxFee,
         @Param("minRating") BigDecimal minRating,
         @Param("type") String type,
-        @Param("subscriptionTier") String subscriptionTier,
         @Param("isVerified") Boolean isVerified,
         @Param("isFeatured") Boolean isFeatured,
         @Param("hasHostel") Boolean hasHostel

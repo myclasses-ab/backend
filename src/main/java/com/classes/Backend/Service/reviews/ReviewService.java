@@ -2,6 +2,7 @@ package com.classes.Backend.Service.reviews;
 
 import com.classes.Backend.Domain.reviews.Review;
 import com.classes.Backend.Domain.enums.Standard;
+import com.classes.Backend.dto.reviews.RatingSummaryDto;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,4 +21,7 @@ public interface ReviewService {
     List<Review> findByUserIdentifier(String userIdentifier);
     List<Review> findByStandardWhenEnrolled(Standard standard);
     List<Review> findByIsVerifiedStudentTrue();
+
+    // ================ RATING SUMMARY ===================== //
+    RatingSummaryDto getRatingSummary(String instituteIdentifier);
 }

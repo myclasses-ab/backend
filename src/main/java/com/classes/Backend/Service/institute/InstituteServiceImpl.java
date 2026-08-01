@@ -1,22 +1,24 @@
 package com.classes.Backend.Service.institute;
 
-import com.classes.Backend.Domain.course.InstituteCourse;
-import com.classes.Backend.Domain.institute.Institute;
-import com.classes.Backend.Domain.institute.InstituteFacility;
-import com.classes.Backend.Domain.enums.InstituteType;
-import com.classes.Backend.Domain.enums.OwnershipType;
-import com.classes.Backend.Domain.enums.SubscriptionTier;
-import com.classes.Backend.Repository.course.InstituteCourseRepository;
-import com.classes.Backend.Repository.institute.InstituteFacilityRepository;
-import com.classes.Backend.Repository.institute.InstituteRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+
+import com.classes.Backend.Domain.course.InstituteCourse;
+import com.classes.Backend.Domain.enums.InstituteType;
+import com.classes.Backend.Domain.enums.OwnershipType;
+import com.classes.Backend.Domain.enums.SubscriptionTier;
+import com.classes.Backend.Domain.institute.Institute;
+import com.classes.Backend.Domain.institute.InstituteFacility;
+import com.classes.Backend.Repository.course.InstituteCourseRepository;
+import com.classes.Backend.Repository.institute.InstituteFacilityRepository;
+import com.classes.Backend.Repository.institute.InstituteRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Service
@@ -118,7 +120,6 @@ public class InstituteServiceImpl implements InstituteService {
         List<Institute> results = this.INSTITUTE_REPOSITORY.searchInstitutes(
                 query, cityIdentifier, cityName, minFee, maxFee, minRating,
                 type != null ? type.name() : null,
-                subscriptionTier != null ? subscriptionTier.name() : null,
                 isVerified, isFeatured, hasHostel
         );
 
@@ -132,11 +133,17 @@ public class InstituteServiceImpl implements InstituteService {
                     .collect(Collectors.toMap(InstituteFacility::getInstituteIdentifier, f -> f, (a, b) -> a));
             results.forEach(institute -> institute.setFacilities(facilityByInstitute.get(institute.getIdentifier())));
 
-            List<InstituteCourse> matchingCourses = this.INSTITUTE_COURSE_REPOSITORY
-                    .findMatchingCourses(instituteIdentifiers, query);
-            Map<String, List<InstituteCourse>> matchingCoursesByInstitute = matchingCourses.stream()
-                    .collect(Collectors.groupingBy(InstituteCourse::getInstituteIdentifier));
-            results.forEach(institute -> institute.setMatchingCourses(matchingCoursesByInstitute.get(institute.getIdentifier())));
+            boolean hasSearchCriteria = (query != null && !query.trim().isEmpty())
+                    || (cityIdentifier != null && !cityIdentifier.isEmpty())
+                    || (cityName != null && !cityName.trim().isEmpty());
+
+            if (hasSearchCriteria) {
+                List<InstituteCourse> matchingCourses = this.INSTITUTE_COURSE_REPOSITORY
+                        .findMatchingCourses(instituteIdentifiers, query, cityIdentifier, cityName);
+                Map<String, List<InstituteCourse>> matchingCoursesByInstitute = matchingCourses.stream()
+                        .collect(Collectors.groupingBy(InstituteCourse::getInstituteIdentifier));
+                results.forEach(institute -> institute.setMatchingCourses(matchingCoursesByInstitute.get(institute.getIdentifier())));
+            }
         }
 
         results.sort((a, b) -> {

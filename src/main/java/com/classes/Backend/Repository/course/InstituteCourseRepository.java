@@ -11,14 +11,20 @@ public interface InstituteCourseRepository extends JpaRepository<InstituteCourse
     List<InstituteCourse> findByInstituteIdentifier(String instituteIdentifier);
 
     @Query(value = """
-            SELECT * FROM institute_courses
-            WHERE institute_identifier IN :instituteIdentifiers
-              AND :query IS NOT NULL
-              AND custom_name ILIKE CONCAT('%', :query, '%')
+            SELECT DISTINCT ic.* FROM institute_courses ic
+            INNER JOIN branches b ON b.identifier = ic.branch_identifier
+            LEFT JOIN branch_service_cities bsc ON bsc.branch_identifier = b.identifier
+            WHERE ic.institute_identifier IN :instituteIdentifiers
+              AND (:query IS NULL OR ic.custom_name ILIKE CONCAT('%', :query, '%'))
+              AND (:cityIdentifier IS NULL OR b.city_identifier = :cityIdentifier)
+              AND (:cityName IS NULL OR b.city_name ILIKE CONCAT('%', :cityName, '%')
+                  OR bsc.city_name ILIKE CONCAT('%', :cityName, '%'))
             """, nativeQuery = true)
     List<InstituteCourse> findMatchingCourses(
             @Param("instituteIdentifiers") List<String> instituteIdentifiers,
-            @Param("query") String query
+            @Param("query") String query,
+            @Param("cityIdentifier") String cityIdentifier,
+            @Param("cityName") String cityName
     );
 
     List<InstituteCourse> findByBranchIdentifier(String branchIdentifier);
