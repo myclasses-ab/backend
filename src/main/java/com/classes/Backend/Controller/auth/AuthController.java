@@ -19,11 +19,19 @@ import com.classes.Backend.Service.messagecentral.MessageCentralService;
 import com.classes.Backend.Service.users.UserInstituteAssociationServiceImpl;
 import com.classes.Backend.Service.users.UserService;
 import com.classes.Backend.dto.activity.ActivityLogRequest;
+import com.classes.Backend.Domain.course.InstituteCourse;
+import com.classes.Backend.Domain.enums.InquirySource;
+import com.classes.Backend.Domain.leads.Inquiry;
+import com.classes.Backend.Repository.course.InstituteCourseRepository;
+import com.classes.Backend.Service.institute.InstituteService;
+import com.classes.Backend.Service.leads.InquiryService;
 import com.classes.Backend.dto.auth.AuthResponse;
 import com.classes.Backend.dto.auth.ChangePasswordRequest;
 import com.classes.Backend.dto.auth.LoginRequest;
 import com.classes.Backend.dto.auth.RegisterRequest;
 import com.classes.Backend.dto.auth.SignupRequest;
+import com.classes.Backend.dto.auth.StudentDemoBookingResponse;
+import com.classes.Backend.dto.auth.UpdateProfileRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +43,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -60,6 +69,9 @@ public class AuthController {
     private final MessageCentralService MESSAGE_CENTRAL_SERVICE;
     private final InstituteSignupService INSTITUTE_SIGNUP_SERVICE;
     private final ForgotPasswordService FORGOT_PASSWORD_SERVICE;
+    private final InquiryService INQUIRY_SERVICE;
+    private final InstituteCourseRepository INSTITUTE_COURSE_REPOSITORY;
+    private final InstituteService INSTITUTE_SERVICE;
 
     // In-memory OTP storage with TTL cleanup
     private final ConcurrentHashMap<String, OtpEntry> OTP_STORE = new ConcurrentHashMap<>();
@@ -536,6 +548,111 @@ public class AuthController {
         return ResponseEntity.ok(user);
     }
 
+    @PatchMapping("/me")
+    public ResponseEntity<?> updateCurrentUser(@RequestHeader("Authorization") String authHeader,
+                                               @RequestBody UpdateProfileRequest request,
+                                               HttpServletRequest httpRequest) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Missing or invalid token"));
+        }
+
+        String token = authHeader.substring(7);
+        String username = JWT_SERVICE.extractUsername(token);
+
+        if ("aditya@gmail.com".equals(username)) {
+            return ResponseEntity.ok(buildSuperAdminUser());
+        }
+
+        User user = USER_SERVICE.findByEmail(username)
+                .orElseGet(() -> USER_SERVICE.findByPhone(username)
+                        .orElseThrow(() -> new BadCredentialsException("User not found")));
+
+        String oldName = user.getFullName();
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName().trim());
+            user = USER_SERVICE.save(user);
+        }
+
+        ACTIVITY_LOG_SERVICE.log(ActivityLogRequest.builder()
+                .actorType(ActivityActorType.STUDENT)
+                .actorIdentifier(user.getIdentifier())
+                .actorName(user.getFullName())
+                .actionType(ActivityActionType.STUDENT_PROFILE_UPDATED)
+                .entityType(ActivityEntityType.USER)
+                .entityIdentifier(user.getIdentifier())
+                .entityName(user.getFullName())
+                .description("Student updated profile name")
+                .oldValue(oldName)
+                .newValue(user.getFullName())
+                .ipAddress(httpRequest.getRemoteAddr())
+                .userAgent(httpRequest.getHeader("User-Agent"))
+                .source("FRONTEND")
+                .build());
+
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/me/demos")
+    public ResponseEntity<?> getCurrentUserDemoBookings(@RequestHeader("Authorization") String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Missing or invalid token"));
+        }
+
+        String token = authHeader.substring(7);
+        String username = JWT_SERVICE.extractUsername(token);
+
+        if ("aditya@gmail.com".equals(username)) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        User user = USER_SERVICE.findByEmail(username)
+                .orElseGet(() -> USER_SERVICE.findByPhone(username)
+                        .orElseThrow(() -> new BadCredentialsException("User not found")));
+
+        List<Inquiry> inquiries = INQUIRY_SERVICE.findByUserIdentifier(user.getIdentifier()).stream()
+                .filter(inquiry -> inquiry.getSource() == InquirySource.BOOK_DEMO)
+                .toList();
+
+        List<StudentDemoBookingResponse> responses = inquiries.stream()
+                .map(this::mapToDemoBookingResponse)
+                .toList();
+
+        return ResponseEntity.ok(responses);
+    }
+
+    private StudentDemoBookingResponse mapToDemoBookingResponse(Inquiry inquiry) {
+        String courseName = INSTITUTE_COURSE_REPOSITORY.findById(inquiry.getCourseIdentifier())
+                .map(InstituteCourse::getCourseName)
+                .orElse(null);
+
+        String instituteName = INSTITUTE_SERVICE.findById(inquiry.getInstituteIdentifier())
+                .map(com.classes.Backend.Domain.institute.Institute::getName)
+                .orElse(null);
+
+        return StudentDemoBookingResponse.builder()
+                .identifier(inquiry.getIdentifier())
+                .instituteIdentifier(inquiry.getInstituteIdentifier())
+                .instituteName(instituteName)
+                .courseIdentifier(inquiry.getCourseIdentifier())
+                .courseName(courseName)
+                .status(inquiry.getStatus())
+                .createdAt(inquiry.getCreatedAt())
+                .build();
+    }
+
+    private User buildSuperAdminUser() {
+        User user = new User();
+        user.setIdentifier("super-admin");
+        user.setFullName("Super Admin");
+        user.setEmail("aditya@gmail.com");
+        user.setRole(UserRole.SUPER_ADMIN);
+        user.setIsActive(true);
+        user.setEmailVerified(true);
+        user.setPhoneVerified(true);
+        user.setPreferredLanguage("English");
+        return user;
+    }
+
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@RequestHeader("Authorization") String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -554,7 +671,9 @@ public class AuthController {
         claims.put("userId", user.getIdentifier());
         claims.put("role", user.getRole().name());
 
-        String newToken = JWT_SERVICE.generateToken(claims, userDetails);
+        String newToken = user.getRole() == UserRole.STUDENT
+                ? JWT_SERVICE.generateStudentToken(claims, userDetails)
+                : JWT_SERVICE.generateToken(claims, userDetails);
         return ResponseEntity.ok(new AuthResponse(newToken, user));
     }
 
@@ -691,7 +810,7 @@ public class AuthController {
         claims.put("role", user.getRole().name());
         claims.put("authType", "phone");
 
-        String token = JWT_SERVICE.generateToken(claims, userDetails);
+        String token = JWT_SERVICE.generateStudentToken(claims, userDetails);
         return ResponseEntity.ok(new com.classes.Backend.dto.auth.PhoneAuthResponse(token, user, isNewUser));
     }
 

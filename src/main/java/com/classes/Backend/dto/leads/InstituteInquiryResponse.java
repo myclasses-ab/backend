@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,6 +22,7 @@ public class InstituteInquiryResponse {
     private String branchIdentifier;
     private String courseIdentifier;
     private String courseName;
+    private BigDecimal courseFee;
     private String studentName;
     private String studentPhone;
     private String email;
@@ -43,6 +45,7 @@ public class InstituteInquiryResponse {
                 .branchIdentifier(inquiry.getBranchIdentifier())
                 .courseIdentifier(inquiry.getCourseIdentifier())
                 .courseName(courseName)
+                .courseFee(inquiry.getCourseFee())
                 .studentName(maskName(inquiry.getName()))
                 .studentPhone(maskPhone(inquiry.getPhone()))
                 .email(inquiry.getEmail())
@@ -67,6 +70,7 @@ public class InstituteInquiryResponse {
                 .branchIdentifier(inquiry.getBranchIdentifier())
                 .courseIdentifier(inquiry.getCourseIdentifier())
                 .courseName(courseName)
+                .courseFee(inquiry.getCourseFee())
                 .studentName(inquiry.getName())
                 .studentPhone(inquiry.getPhone())
                 .email(inquiry.getEmail())

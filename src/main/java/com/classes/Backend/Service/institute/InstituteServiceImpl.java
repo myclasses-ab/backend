@@ -10,13 +10,17 @@ import org.springframework.stereotype.Service;
 
 import com.classes.Backend.Domain.course.InstituteCourse;
 import com.classes.Backend.Domain.enums.InstituteType;
+import com.classes.Backend.Domain.enums.MediaEntityType;
+import com.classes.Backend.Domain.enums.MediaType;
 import com.classes.Backend.Domain.enums.OwnershipType;
 import com.classes.Backend.Domain.enums.SubscriptionTier;
 import com.classes.Backend.Domain.institute.Institute;
 import com.classes.Backend.Domain.institute.InstituteFacility;
+import com.classes.Backend.Domain.media.Media;
 import com.classes.Backend.Repository.course.InstituteCourseRepository;
 import com.classes.Backend.Repository.institute.InstituteFacilityRepository;
 import com.classes.Backend.Repository.institute.InstituteRepository;
+import com.classes.Backend.Repository.media.MediaRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +30,7 @@ public class InstituteServiceImpl implements InstituteService {
     private final InstituteRepository INSTITUTE_REPOSITORY;
     private final InstituteFacilityRepository INSTITUTE_FACILITY_REPOSITORY;
     private final InstituteCourseRepository INSTITUTE_COURSE_REPOSITORY;
+    private final MediaRepository MEDIA_REPOSITORY;
 
     // ================ SAVE INSTITUTE ===================== //
     @Override
@@ -42,13 +47,17 @@ public class InstituteServiceImpl implements InstituteService {
     // ================ FIND BY ID ===================== //
     @Override
     public Optional<Institute> findById(String identifier) {
-        return this.INSTITUTE_REPOSITORY.findById(identifier);
+        Optional<Institute> institute = this.INSTITUTE_REPOSITORY.findById(identifier);
+        institute.ifPresent(i -> attachStarredMedia(List.of(i)));
+        return institute;
     }
 
     // ================ FIND ALL ===================== //
     @Override
     public List<Institute> findAll() {
-        return this.INSTITUTE_REPOSITORY.findAll();
+        List<Institute> institutes = this.INSTITUTE_REPOSITORY.findAll();
+        attachStarredMedia(institutes);
+        return institutes;
     }
 
     // ================ DELETE BY ID ===================== //
@@ -69,7 +78,9 @@ public class InstituteServiceImpl implements InstituteService {
     // ================ FIND BY SLUG ===================== //
     @Override
     public Optional<Institute> findBySlug(String slug) {
-        return this.INSTITUTE_REPOSITORY.findBySlug(slug);
+        Optional<Institute> institute = this.INSTITUTE_REPOSITORY.findBySlug(slug);
+        institute.ifPresent(i -> attachStarredMedia(List.of(i)));
+        return institute;
     }
 
     // ================ FIND BY TYPE ===================== //
@@ -146,6 +157,8 @@ public class InstituteServiceImpl implements InstituteService {
             }
         }
 
+        attachStarredMedia(results);
+
         results.sort((a, b) -> {
             int comparison = 0;
             switch (sortBy != null ? sortBy : "relevance") {
@@ -199,5 +212,31 @@ public class InstituteServiceImpl implements InstituteService {
         if (a == null) return -1;
         if (b == null) return 1;
         return a.compareTo(b);
+    }
+
+    // ================ ATTACH STARRED MEDIA URLS ===================== //
+    private void attachStarredMedia(List<Institute> institutes) {
+        if (institutes == null || institutes.isEmpty()) {
+            return;
+        }
+
+        List<String> instituteIdentifiers = institutes.stream()
+                .map(Institute::getIdentifier)
+                .toList();
+
+        List<Media> starredMedia = this.MEDIA_REPOSITORY.findStarredImagesByInstituteIdentifiers(
+                instituteIdentifiers, MediaEntityType.INSTITUTE, MediaType.IMAGE);
+
+        Map<String, List<String>> starredUrlsByInstitute = starredMedia.stream()
+                .collect(Collectors.groupingBy(
+                        Media::getInstituteIdentifier,
+                        Collectors.mapping(Media::getUrl, Collectors.toList())
+                ));
+
+        institutes.forEach(institute -> {
+            List<String> urls = starredUrlsByInstitute.getOrDefault(institute.getIdentifier(), List.of());
+            // Limit to first 3 just in case
+            institute.setStarredMediaUrls(urls.size() > 3 ? urls.subList(0, 3) : urls);
+        });
     }
 }

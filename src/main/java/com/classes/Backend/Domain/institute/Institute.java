@@ -118,6 +118,9 @@ public class Institute {
     @Transient
     private List<InstituteCourse> matchingCourses;
 
+    @Transient
+    private List<String> starredMediaUrls;
+
     @PrePersist
     protected void onCreate() {
         // Auto-generate UUID identifier if not set (safety net)

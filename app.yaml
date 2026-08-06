@@ -57,6 +57,8 @@ services:
         type: SECRET
       - key: JWT_EXPIRATION
         value: "86400000"
+      - key: JWT_STUDENT_EXPIRATION
+        value: "432000000"
 
       # --- AWS S3 ---
       # NOTE: Replace with your actual AWS credentials

@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -29,6 +30,9 @@ public class Inquiry {
 
     @Column(name = "course_identifier")
     private String courseIdentifier;
+
+    @Column(name = "course_fee", precision = 12, scale = 2)
+    private BigDecimal courseFee;
 
     @Column(name = "user_identifier")
     private String userIdentifier;
