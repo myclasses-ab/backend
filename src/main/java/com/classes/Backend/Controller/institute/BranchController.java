@@ -150,4 +150,10 @@ public class BranchController {
         return new ResponseEntity<>(this.BRANCH_SERVICE_IMPL.findByIsOnlineOnlyTrue(), HttpStatus.OK);
     }
 
+    // ================ FIND BRANCHES WITH UNRESOLVED COORDINATES ===================== //
+    @GetMapping("/unresolved-coordinates")
+    public ResponseEntity<?> findBranchesWithUnresolvedCoordinates() {
+        return new ResponseEntity<>(this.BRANCH_SERVICE_IMPL.findBranchesWithUnresolvedCoordinates(), HttpStatus.OK);
+    }
+
 }

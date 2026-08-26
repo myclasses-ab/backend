@@ -29,5 +29,5 @@ public interface InstituteService {
     List<Institute> findByParentInstituteIdentifier(String parentInstituteIdentifier);
 
     // ================ SEARCH ===================== //
-    List<Institute> searchInstitutes(String query, String cityIdentifier, String cityName, BigDecimal minFee, BigDecimal maxFee, BigDecimal minRating, InstituteType type, SubscriptionTier subscriptionTier, Boolean isVerified, Boolean isFeatured, Boolean hasHostel, String sortBy, String sortOrder);
+    List<Institute> searchInstitutes(String query, String cityIdentifier, String cityName, BigDecimal minFee, BigDecimal maxFee, BigDecimal minRating, InstituteType type, SubscriptionTier subscriptionTier, Boolean isVerified, Boolean isFeatured, Boolean hasHostel, String sortBy, String sortOrder, BigDecimal userLat, BigDecimal userLng, BigDecimal radiusKm);
 }

@@ -14,12 +14,16 @@ import com.classes.Backend.Domain.enums.MediaEntityType;
 import com.classes.Backend.Domain.enums.MediaType;
 import com.classes.Backend.Domain.enums.OwnershipType;
 import com.classes.Backend.Domain.enums.SubscriptionTier;
+import com.classes.Backend.Domain.institute.Branch;
 import com.classes.Backend.Domain.institute.Institute;
 import com.classes.Backend.Domain.institute.InstituteFacility;
+import com.classes.Backend.Domain.master.City;
 import com.classes.Backend.Domain.media.Media;
 import com.classes.Backend.Repository.course.InstituteCourseRepository;
+import com.classes.Backend.Repository.institute.BranchRepository;
 import com.classes.Backend.Repository.institute.InstituteFacilityRepository;
 import com.classes.Backend.Repository.institute.InstituteRepository;
+import com.classes.Backend.Repository.master.CityRepository;
 import com.classes.Backend.Repository.media.MediaRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -31,6 +35,11 @@ public class InstituteServiceImpl implements InstituteService {
     private final InstituteFacilityRepository INSTITUTE_FACILITY_REPOSITORY;
     private final InstituteCourseRepository INSTITUTE_COURSE_REPOSITORY;
     private final MediaRepository MEDIA_REPOSITORY;
+    private final BranchRepository BRANCH_REPOSITORY;
+    private final CityRepository CITY_REPOSITORY;
+
+    private static final BigDecimal DEFAULT_RADIUS_KM = BigDecimal.valueOf(20);
+    private static final BigDecimal MAX_RADIUS_KM = BigDecimal.valueOf(60);
 
     // ================ SAVE INSTITUTE ===================== //
     @Override
@@ -127,11 +136,45 @@ public class InstituteServiceImpl implements InstituteService {
 
     // ================ SEARCH INSTITUTES ===================== //
     @Override
-    public List<Institute> searchInstitutes(String query, String cityIdentifier, String cityName, BigDecimal minFee, BigDecimal maxFee, BigDecimal minRating, InstituteType type, SubscriptionTier subscriptionTier, Boolean isVerified, Boolean isFeatured, Boolean hasHostel, String sortBy, String sortOrder) {
+    public List<Institute> searchInstitutes(String query, String cityIdentifier, String cityName, BigDecimal minFee, BigDecimal maxFee, BigDecimal minRating, InstituteType type, SubscriptionTier subscriptionTier, Boolean isVerified, Boolean isFeatured, Boolean hasHostel, String sortBy, String sortOrder, BigDecimal userLat, BigDecimal userLng, BigDecimal radiusKm) {
+        boolean hasUserReference = userLat != null && userLng != null;
+        BigDecimal effectiveRadiusKm = clampRadius(radiusKm);
+
+        // If a city is provided but no user GPS, try to use the city center as the reference point.
+        GeoReference reference = null;
+        if (hasUserReference) {
+            reference = new GeoReference(userLat, userLng, null);
+        } else if ((cityIdentifier != null && !cityIdentifier.isBlank()) || (cityName != null && !cityName.isBlank())) {
+            reference = resolveCityReference(cityIdentifier, cityName);
+        }
+
+        boolean hasDistanceFilter = reference != null;
+
+        List<String> instituteIdentifiersWithinRadius = null;
+        List<Branch> matchedBranches = List.of();
+        if (hasDistanceFilter) {
+            matchedBranches = this.BRANCH_REPOSITORY.findBranchesWithinRadius(
+                    reference.latitude(), reference.longitude(), effectiveRadiusKm);
+            if (matchedBranches.isEmpty()) {
+                return List.of();
+            }
+            instituteIdentifiersWithinRadius = matchedBranches.stream()
+                    .map(Branch::getInstituteIdentifier)
+                    .distinct()
+                    .toList();
+        }
+
+        boolean instituteIdentifiersEmpty = instituteIdentifiersWithinRadius == null || instituteIdentifiersWithinRadius.isEmpty();
+        List<String> instituteIdentifiersParam = instituteIdentifiersWithinRadius != null
+                ? instituteIdentifiersWithinRadius
+                : List.of();
+
         List<Institute> results = this.INSTITUTE_REPOSITORY.searchInstitutes(
                 query, cityIdentifier, cityName, minFee, maxFee, minRating,
                 type != null ? type.name() : null,
-                isVerified, isFeatured, hasHostel
+                isVerified, isFeatured, hasHostel,
+                instituteIdentifiersParam,
+                instituteIdentifiersEmpty
         );
 
         if (!results.isEmpty()) {
@@ -144,16 +187,41 @@ public class InstituteServiceImpl implements InstituteService {
                     .collect(Collectors.toMap(InstituteFacility::getInstituteIdentifier, f -> f, (a, b) -> a));
             results.forEach(institute -> institute.setFacilities(facilityByInstitute.get(institute.getIdentifier())));
 
+            Map<String, List<Branch>> branchesByInstitute = matchedBranches.stream()
+                    .collect(Collectors.groupingBy(Branch::getInstituteIdentifier));
+
+            Map<String, BigDecimal> distanceByInstitute = matchedBranches.stream()
+                    .collect(Collectors.toMap(
+                            Branch::getInstituteIdentifier,
+                            branch -> haversineKm(reference.latitude(), reference.longitude(), branch.getLatitude(), branch.getLongitude()),
+                            (a, b) -> a.compareTo(b) <= 0 ? a : b));
+
             boolean hasSearchCriteria = (query != null && !query.trim().isEmpty())
                     || (cityIdentifier != null && !cityIdentifier.isEmpty())
                     || (cityName != null && !cityName.trim().isEmpty());
 
             if (hasSearchCriteria) {
-                List<InstituteCourse> matchingCourses = this.INSTITUTE_COURSE_REPOSITORY
-                        .findMatchingCourses(instituteIdentifiers, query, cityIdentifier, cityName);
+                List<String> matchedBranchIdentifiers = matchedBranches.stream()
+                        .map(Branch::getIdentifier)
+                        .toList();
+                List<InstituteCourse> matchingCourses;
+                if (hasDistanceFilter && !matchedBranchIdentifiers.isEmpty()) {
+                    matchingCourses = this.INSTITUTE_COURSE_REPOSITORY
+                            .findByInstituteIdentifierInAndBranchIdentifierIn(instituteIdentifiers, matchedBranchIdentifiers);
+                } else {
+                    matchingCourses = this.INSTITUTE_COURSE_REPOSITORY
+                            .findMatchingCourses(instituteIdentifiers, query, cityIdentifier, cityName);
+                }
                 Map<String, List<InstituteCourse>> matchingCoursesByInstitute = matchingCourses.stream()
                         .collect(Collectors.groupingBy(InstituteCourse::getInstituteIdentifier));
                 results.forEach(institute -> institute.setMatchingCourses(matchingCoursesByInstitute.get(institute.getIdentifier())));
+            }
+
+            if (hasDistanceFilter) {
+                results.forEach(institute -> {
+                    institute.setDistanceKm(distanceByInstitute.get(institute.getIdentifier()));
+                    institute.setMatchedBranches(branchesByInstitute.getOrDefault(institute.getIdentifier(), List.of()));
+                });
             }
         }
 
@@ -162,6 +230,9 @@ public class InstituteServiceImpl implements InstituteService {
         results.sort((a, b) -> {
             int comparison = 0;
             switch (sortBy != null ? sortBy : "relevance") {
+                case "distance":
+                    comparison = compareBigDecimal(a.getDistanceKm(), b.getDistanceKm());
+                    break;
                 case "rating":
                     comparison = compareBigDecimal(a.getAverageRating(), b.getAverageRating());
                     break;
@@ -178,6 +249,12 @@ public class InstituteServiceImpl implements InstituteService {
                     comparison = 0;
                     break;
                 default:
+                    if (hasDistanceFilter) {
+                        comparison = compareBigDecimal(a.getDistanceKm(), b.getDistanceKm());
+                        if (comparison != 0) {
+                            break;
+                        }
+                    }
                     if (Boolean.TRUE.equals(a.getIsFeatured()) != Boolean.TRUE.equals(b.getIsFeatured())) {
                         return Boolean.TRUE.equals(a.getIsFeatured()) ? -1 : 1;
                     }
@@ -191,6 +268,45 @@ public class InstituteServiceImpl implements InstituteService {
         });
 
         return results;
+    }
+
+    private record GeoReference(BigDecimal latitude, BigDecimal longitude, String label) {
+    }
+
+    private GeoReference resolveCityReference(String cityIdentifier, String cityName) {
+        Optional<City> city = Optional.empty();
+        if (cityIdentifier != null && !cityIdentifier.isBlank()) {
+            city = this.CITY_REPOSITORY.findById(cityIdentifier);
+        }
+        if (city.isEmpty() && cityName != null && !cityName.isBlank()) {
+            city = this.CITY_REPOSITORY.findAll().stream()
+                    .filter(c -> c.getName() != null && c.getName().equalsIgnoreCase(cityName.trim()))
+                    .findFirst();
+        }
+        return city.filter(c -> c.getLatitude() != null && c.getLongitude() != null)
+                .map(c -> new GeoReference(c.getLatitude(), c.getLongitude(), c.getName()))
+                .orElse(null);
+    }
+
+    private BigDecimal clampRadius(BigDecimal radiusKm) {
+        if (radiusKm == null || radiusKm.compareTo(BigDecimal.ZERO) <= 0) {
+            return DEFAULT_RADIUS_KM;
+        }
+        if (radiusKm.compareTo(MAX_RADIUS_KM) > 0) {
+            return MAX_RADIUS_KM;
+        }
+        return radiusKm;
+    }
+
+    private BigDecimal haversineKm(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {
+        double r = 6371;
+        double dLat = Math.toRadians(lat2.doubleValue() - lat1.doubleValue());
+        double dLng = Math.toRadians(lng2.doubleValue() - lng1.doubleValue());
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1.doubleValue())) * Math.cos(Math.toRadians(lat2.doubleValue()))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return BigDecimal.valueOf(r * c);
     }
 
     private int compareBigDecimal(BigDecimal a, BigDecimal b) {

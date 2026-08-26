@@ -213,7 +213,10 @@ public class InstituteController {
             @RequestParam(required = false) Boolean isFeatured,
             @RequestParam(required = false) Boolean hasHostel,
             @RequestParam(required = false, defaultValue = "relevance") String sortBy,
-            @RequestParam(required = false, defaultValue = "desc") String sortOrder
+            @RequestParam(required = false, defaultValue = "desc") String sortOrder,
+            @RequestParam(required = false) BigDecimal userLat,
+            @RequestParam(required = false) BigDecimal userLng,
+            @RequestParam(required = false) BigDecimal radiusKm
     ) {
         if (query != null && query.trim().isEmpty()) {
             query = null;
@@ -223,7 +226,8 @@ public class InstituteController {
         }
         List<Institute> results = this.INSTITUTE_SERVICE_IMPL.searchInstitutes(
                 query, cityIdentifier, cityName, minFee, maxFee, minRating, type, subscriptionTier,
-                isVerified, isFeatured, hasHostel, sortBy, sortOrder
+                isVerified, isFeatured, hasHostel, sortBy, sortOrder,
+                userLat, userLng, radiusKm
         );
         return new ResponseEntity<>(results, HttpStatus.OK);
     }

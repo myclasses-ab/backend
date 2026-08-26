@@ -121,6 +121,12 @@ public class Institute {
     @Transient
     private List<String> starredMediaUrls;
 
+    @Transient
+    private BigDecimal distanceKm;
+
+    @Transient
+    private List<Branch> matchedBranches;
+
     @PrePersist
     protected void onCreate() {
         // Auto-generate UUID identifier if not set (safety net)

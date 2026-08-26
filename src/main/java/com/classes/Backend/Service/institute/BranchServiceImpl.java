@@ -2,56 +2,76 @@ package com.classes.Backend.Service.institute;
 
 import com.classes.Backend.Domain.institute.Branch;
 import com.classes.Backend.Repository.institute.BranchRepository;
+import com.classes.Backend.Service.location.LocationResolverService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
+import java.math.BigDecimal;
+import java.net.URL;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class BranchServiceImpl implements BranchService {
     private final BranchRepository BRANCH_REPOSITORY;
+    private final LocationResolverService LOCATION_RESOLVER_SERVICE;
 
     // ================ SAVE BRANCH ===================== //
     @Override
     public Branch save(Branch branch) {
-        normalizeServiceCities(branch);
+        validateGoogleMapsUrl(branch);
+        resolveCoordinatesIfMissing(branch);
         return this.BRANCH_REPOSITORY.save(branch);
     }
 
-    private void normalizeServiceCities(Branch branch) {
-        List<String> cities = branch.getServiceCities();
-        if (cities == null) {
-            cities = new ArrayList<>();
+    private void validateGoogleMapsUrl(Branch branch) {
+        String url = branch.getGoogleMapsUrl();
+        if (!StringUtils.hasText(url)) {
+            throw new IllegalArgumentException("Google Maps URL is required for every branch.");
         }
-
-        // Backfill from legacy cityName if the list is empty
-        if (cities.isEmpty() && branch.getCityName() != null && !branch.getCityName().trim().isEmpty()) {
-            cities.add(branch.getCityName().trim());
+        try {
+            new URL(url);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Google Maps URL must be a valid URL.");
         }
+    }
 
-        List<String> normalized = cities.stream()
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .distinct()
-                .collect(Collectors.toList());
-
-        if (CollectionUtils.isEmpty(normalized)) {
-            branch.setServiceCities(new ArrayList<>());
+    private void resolveCoordinatesIfMissing(Branch branch) {
+        String mapsUrl = branch.getGoogleMapsUrl();
+        if (!StringUtils.hasText(mapsUrl)) {
             return;
         }
 
-        branch.setServiceCities(normalized);
-        branch.setCityName(normalized.get(0));
+        BigDecimal existingLatitude = branch.getLatitude();
+        BigDecimal existingLongitude = branch.getLongitude();
+        if (existingLatitude != null && existingLongitude != null) {
+            return;
+        }
+
+        Optional<LocationResolverService.Coordinates> resolved = LOCATION_RESOLVER_SERVICE.resolve(mapsUrl);
+        if (resolved.isPresent()) {
+            LocationResolverService.Coordinates coordinates = resolved.get();
+            branch.setLatitude(coordinates.latitude());
+            branch.setLongitude(coordinates.longitude());
+        } else {
+            log.warn("Could not resolve coordinates for branch '{}' with maps URL: {}",
+                    branch.getName(), mapsUrl);
+        }
     }
 
     // ================ SAVE ALL BRANCHES ===================== //
     @Override
     public List<Branch> saveAll(List<Branch> branches) {
+        if (branches != null) {
+            branches.forEach(branch -> {
+                validateGoogleMapsUrl(branch);
+                resolveCoordinatesIfMissing(branch);
+            });
+        }
         return this.BRANCH_REPOSITORY.saveAll(branches);
     }
 
@@ -104,5 +124,11 @@ public class BranchServiceImpl implements BranchService {
     @Override
     public List<Branch> findByIsOnlineOnlyTrue() {
         return this.BRANCH_REPOSITORY.findByIsOnlineOnlyTrue();
+    }
+
+    // ================ FIND BRANCHES WITH UNRESOLVED COORDINATES ===================== //
+    @Override
+    public List<Branch> findBranchesWithUnresolvedCoordinates() {
+        return this.BRANCH_REPOSITORY.findBranchesWithUnresolvedCoordinates();
     }
 }
