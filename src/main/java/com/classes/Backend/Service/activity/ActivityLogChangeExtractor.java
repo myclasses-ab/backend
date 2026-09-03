@@ -1,6 +1,7 @@
 package com.classes.Backend.Service.activity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
@@ -10,7 +11,7 @@ import java.util.Set;
 @Slf4j
 public final class ActivityLogChangeExtractor {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().registerModule(new JavaTimeModule());
     private static final Set<String> IGNORED_FIELDS = Set.of(
             "identifier", "createdAt", "updatedAt", "createdBy",
             "facilities", "matchingCourses"

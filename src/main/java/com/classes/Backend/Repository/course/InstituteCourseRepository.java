@@ -25,9 +25,14 @@ public interface InstituteCourseRepository extends JpaRepository<InstituteCourse
             @Param("cityName") String cityName
     );
 
+    @Query(value = """
+            SELECT ic.* FROM institute_courses ic
+            WHERE ic.institute_identifier IN :instituteIdentifiers
+              AND ic.branch_identifier IN :branchIdentifiers
+            """, nativeQuery = true)
     List<InstituteCourse> findByInstituteIdentifierInAndBranchIdentifierIn(
-            List<String> instituteIdentifiers,
-            List<String> branchIdentifiers
+            @Param("instituteIdentifiers") List<String> instituteIdentifiers,
+            @Param("branchIdentifiers") List<String> branchIdentifiers
     );
 
     List<InstituteCourse> findByBranchIdentifier(String branchIdentifier);

@@ -103,8 +103,7 @@ public class BranchController {
         if (existing == null) {
             return new ResponseEntity<>("Branch not found", HttpStatus.NOT_FOUND);
         }
-        branch.setIdentifier(identifier);
-        Branch updated = this.BRANCH_SERVICE_IMPL.save(branch);
+        Branch updated = this.BRANCH_SERVICE_IMPL.update(identifier, branch);
 
         ResolvedActor actor = ACTOR_RESOLVER.resolve(request);
         if (actor.isAuthenticated()) {

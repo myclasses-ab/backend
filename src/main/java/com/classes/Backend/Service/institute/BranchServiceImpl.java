@@ -75,6 +75,33 @@ public class BranchServiceImpl implements BranchService {
         return this.BRANCH_REPOSITORY.saveAll(branches);
     }
 
+    // ================ UPDATE BRANCH ===================== //
+    @Override
+    public Branch update(String identifier, Branch branch) {
+        Branch existing = this.BRANCH_REPOSITORY.findById(identifier)
+                .orElseThrow(() -> new RuntimeException("Branch with identifier '" + identifier + "' not found"));
+
+        validateGoogleMapsUrl(branch);
+
+        String newMapsUrl = branch.getGoogleMapsUrl();
+        String existingMapsUrl = existing.getGoogleMapsUrl();
+
+        if (java.util.Objects.equals(newMapsUrl, existingMapsUrl)) {
+            // URL unchanged: keep existing coordinates and ignore anything sent in the payload.
+            branch.setLatitude(existing.getLatitude());
+            branch.setLongitude(existing.getLongitude());
+        } else {
+            // URL changed: clear coordinates and resolve fresh ones from the new URL.
+            branch.setLatitude(null);
+            branch.setLongitude(null);
+            resolveCoordinatesIfMissing(branch);
+        }
+
+        branch.setIdentifier(identifier);
+        branch.setCreatedAt(existing.getCreatedAt());
+        return this.BRANCH_REPOSITORY.save(branch);
+    }
+
     // ================ FIND BY ID ===================== //
     @Override
     public Optional<Branch> findById(String identifier) {

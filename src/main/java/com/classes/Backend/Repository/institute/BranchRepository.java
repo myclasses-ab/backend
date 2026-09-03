@@ -25,17 +25,21 @@ public interface BranchRepository extends JpaRepository<Branch, String> {
     @Query(value = """
             SELECT b.*,
                 (6371 * acos(
-                    cos(radians(:userLat)) * cos(radians(b.latitude)) *
-                    cos(radians(b.longitude) - radians(:userLng)) +
-                    sin(radians(:userLat)) * sin(radians(b.latitude))
+                    LEAST(1, GREATEST(-1,
+                        cos(radians(CAST(:userLat AS double precision))) * cos(radians(CAST(b.latitude AS double precision))) *
+                        cos(radians(CAST(b.longitude AS double precision)) - radians(CAST(:userLng AS double precision))) +
+                        sin(radians(CAST(:userLat AS double precision))) * sin(radians(CAST(b.latitude AS double precision)))
+                    ))
                 )) AS distance_km
             FROM branches b
             WHERE b.latitude IS NOT NULL AND b.longitude IS NOT NULL
               AND (6371 * acos(
-                    cos(radians(:userLat)) * cos(radians(b.latitude)) *
-                    cos(radians(b.longitude) - radians(:userLng)) +
-                    sin(radians(:userLat)) * sin(radians(b.latitude))
-                )) <= :radiusKm
+                    LEAST(1, GREATEST(-1,
+                        cos(radians(CAST(:userLat AS double precision))) * cos(radians(CAST(b.latitude AS double precision))) *
+                        cos(radians(CAST(b.longitude AS double precision)) - radians(CAST(:userLng AS double precision))) +
+                        sin(radians(CAST(:userLat AS double precision))) * sin(radians(CAST(b.latitude AS double precision)))
+                    ))
+                )) <= CAST(:radiusKm AS double precision)
             ORDER BY distance_km ASC
             """, nativeQuery = true)
     List<Branch> findBranchesWithinRadius(

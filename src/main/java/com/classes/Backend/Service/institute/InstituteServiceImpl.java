@@ -137,17 +137,10 @@ public class InstituteServiceImpl implements InstituteService {
     // ================ SEARCH INSTITUTES ===================== //
     @Override
     public List<Institute> searchInstitutes(String query, String cityIdentifier, String cityName, BigDecimal minFee, BigDecimal maxFee, BigDecimal minRating, InstituteType type, SubscriptionTier subscriptionTier, Boolean isVerified, Boolean isFeatured, Boolean hasHostel, String sortBy, String sortOrder, BigDecimal userLat, BigDecimal userLng, BigDecimal radiusKm) {
-        boolean hasUserReference = userLat != null && userLng != null;
         BigDecimal effectiveRadiusKm = clampRadius(radiusKm);
 
-        // If a city is provided but no user GPS, try to use the city center as the reference point.
-        GeoReference reference = null;
-        if (hasUserReference) {
-            reference = new GeoReference(userLat, userLng, null);
-        } else if ((cityIdentifier != null && !cityIdentifier.isBlank()) || (cityName != null && !cityName.isBlank())) {
-            reference = resolveCityReference(cityIdentifier, cityName);
-        }
-
+        // Resolve reference point once so it is effectively final for lambda usage.
+        GeoReference reference = resolveReference(userLat, userLng, cityIdentifier, cityName);
         boolean hasDistanceFilter = reference != null;
 
         List<String> instituteIdentifiersWithinRadius = null;
@@ -169,8 +162,20 @@ public class InstituteServiceImpl implements InstituteService {
                 ? instituteIdentifiersWithinRadius
                 : List.of();
 
+        // When a geo reference is resolved, the radius already constrains branches; do not
+        // additionally filter by city name/identifier because the user/reference point may be
+        // in a different city than the branch itself.
+        String searchCityIdentifier = hasDistanceFilter ? null : cityIdentifier;
+        String searchCityName = hasDistanceFilter ? null : cityName;
+
+        // In distance mode, fee filtering is applied after courses are narrowed down to the
+        // matched branches. This avoids excluding an institute just because one of its other
+        // branches has a course outside the selected fee range.
+        BigDecimal searchMinFee = hasDistanceFilter ? null : minFee;
+        BigDecimal searchMaxFee = hasDistanceFilter ? null : maxFee;
+
         List<Institute> results = this.INSTITUTE_REPOSITORY.searchInstitutes(
-                query, cityIdentifier, cityName, minFee, maxFee, minRating,
+                query, searchCityIdentifier, searchCityName, searchMinFee, searchMaxFee, minRating,
                 type != null ? type.name() : null,
                 isVerified, isFeatured, hasHostel,
                 instituteIdentifiersParam,
@@ -198,7 +203,8 @@ public class InstituteServiceImpl implements InstituteService {
 
             boolean hasSearchCriteria = (query != null && !query.trim().isEmpty())
                     || (cityIdentifier != null && !cityIdentifier.isEmpty())
-                    || (cityName != null && !cityName.trim().isEmpty());
+                    || (cityName != null && !cityName.trim().isEmpty())
+                    || hasDistanceFilter;
 
             if (hasSearchCriteria) {
                 List<String> matchedBranchIdentifiers = matchedBranches.stream()
@@ -212,7 +218,19 @@ public class InstituteServiceImpl implements InstituteService {
                     matchingCourses = this.INSTITUTE_COURSE_REPOSITORY
                             .findMatchingCourses(instituteIdentifiers, query, cityIdentifier, cityName);
                 }
-                Map<String, List<InstituteCourse>> matchingCoursesByInstitute = matchingCourses.stream()
+
+                // In distance mode, fee is a best-effort ranking signal, not an exclusion rule.
+                // Courses inside the range are shown first; if none match, the nearest courses are surfaced.
+                final List<InstituteCourse> rankedCourses;
+                if (hasDistanceFilter && (minFee != null || maxFee != null)) {
+                    rankedCourses = matchingCourses.stream()
+                            .sorted(java.util.Comparator.comparing(course -> feeDistance(course.getFee(), minFee, maxFee)))
+                            .toList();
+                } else {
+                    rankedCourses = matchingCourses;
+                }
+
+                Map<String, List<InstituteCourse>> matchingCoursesByInstitute = rankedCourses.stream()
                         .collect(Collectors.groupingBy(InstituteCourse::getInstituteIdentifier));
                 results.forEach(institute -> institute.setMatchingCourses(matchingCoursesByInstitute.get(institute.getIdentifier())));
             }
@@ -273,6 +291,17 @@ public class InstituteServiceImpl implements InstituteService {
     private record GeoReference(BigDecimal latitude, BigDecimal longitude, String label) {
     }
 
+    private GeoReference resolveReference(BigDecimal userLat, BigDecimal userLng, String cityIdentifier, String cityName) {
+        boolean hasUserReference = userLat != null && userLng != null;
+        if (hasUserReference) {
+            return new GeoReference(userLat, userLng, null);
+        }
+        if ((cityIdentifier != null && !cityIdentifier.isBlank()) || (cityName != null && !cityName.isBlank())) {
+            return resolveCityReference(cityIdentifier, cityName);
+        }
+        return null;
+    }
+
     private GeoReference resolveCityReference(String cityIdentifier, String cityName) {
         Optional<City> city = Optional.empty();
         if (cityIdentifier != null && !cityIdentifier.isBlank()) {
@@ -296,6 +325,35 @@ public class InstituteServiceImpl implements InstituteService {
             return MAX_RADIUS_KM;
         }
         return radiusKm;
+    }
+
+    private boolean isFeeInRange(BigDecimal fee, BigDecimal minFee, BigDecimal maxFee) {
+        if (fee == null) {
+            return false;
+        }
+        if (minFee != null && fee.compareTo(minFee) < 0) {
+            return false;
+        }
+        if (maxFee != null && fee.compareTo(maxFee) > 0) {
+            return false;
+        }
+        return true;
+    }
+
+    private BigDecimal feeDistance(BigDecimal fee, BigDecimal minFee, BigDecimal maxFee) {
+        if (fee == null) {
+            return BigDecimal.valueOf(Long.MAX_VALUE);
+        }
+        if (isFeeInRange(fee, minFee, maxFee)) {
+            return BigDecimal.ZERO;
+        }
+        if (minFee != null && fee.compareTo(minFee) < 0) {
+            return minFee.subtract(fee);
+        }
+        if (maxFee != null && fee.compareTo(maxFee) > 0) {
+            return fee.subtract(maxFee);
+        }
+        return BigDecimal.ZERO;
     }
 
     private BigDecimal haversineKm(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {

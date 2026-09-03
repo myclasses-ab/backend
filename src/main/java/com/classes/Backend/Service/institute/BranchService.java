@@ -9,6 +9,7 @@ public interface BranchService {
     // ================ CRUD OPERATIONS ===================== //
     Branch save(Branch branch);
     List<Branch> saveAll(List<Branch> branches);
+    Branch update(String identifier, Branch branch);
     Optional<Branch> findById(String identifier);
     List<Branch> findAll();
     void deleteById(String identifier);
