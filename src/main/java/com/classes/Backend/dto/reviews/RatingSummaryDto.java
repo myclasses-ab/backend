@@ -12,4 +12,6 @@ import java.math.BigDecimal;
 public class RatingSummaryDto {
     private BigDecimal averageRating;
     private Long totalReviews;
+    private BigDecimal googleRating;
+    private Long googleRatingCount;
 }

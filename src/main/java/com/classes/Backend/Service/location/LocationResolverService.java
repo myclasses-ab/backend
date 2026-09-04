@@ -64,6 +64,14 @@ public class LocationResolverService {
         }
     }
 
+    public String expandUrl(String url) {
+        return expandIfShort(url);
+    }
+
+    public String extractPlaceQuery(String url) {
+        return extractSearchQuery(url);
+    }
+
     private String expandIfShort(String url) {
         if (!isShortUrl(url)) {
             return url;

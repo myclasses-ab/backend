@@ -155,4 +155,19 @@ public class BranchController {
         return new ResponseEntity<>(this.BRANCH_SERVICE_IMPL.findBranchesWithUnresolvedCoordinates(), HttpStatus.OK);
     }
 
+    // ================ REFRESH GOOGLE RATING ===================== //
+    @PostMapping("/{identifier}/google-rating/refresh")
+    public ResponseEntity<?> refreshGoogleRating(@PathVariable String identifier) {
+        try {
+            Branch updated = this.BRANCH_SERVICE_IMPL.refreshGoogleRating(identifier);
+            return new ResponseEntity<>(updated, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        } catch (IllegalStateException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_GATEWAY);
+        } catch (RuntimeException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+
 }

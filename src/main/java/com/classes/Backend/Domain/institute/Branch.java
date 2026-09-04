@@ -60,6 +60,18 @@ public class Branch {
     @Column(name = "google_maps_url", length = 1000)
     private String googleMapsUrl;
 
+    @Column(name = "google_place_id", length = 300)
+    private String googlePlaceId;
+
+    @Column(name = "google_rating", precision = 3, scale = 1)
+    private BigDecimal googleRating;
+
+    @Column(name = "google_rating_count")
+    private Integer googleRatingCount;
+
+    @Column(name = "google_rating_updated_at")
+    private LocalDateTime googleRatingUpdatedAt;
+
     @Column(name = "phone", length = 20)
     private String phone;
 

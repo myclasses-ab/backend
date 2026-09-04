@@ -2,6 +2,7 @@ package com.classes.Backend.Service.institute;
 
 import com.classes.Backend.Domain.institute.Branch;
 import com.classes.Backend.Repository.institute.BranchRepository;
+import com.classes.Backend.Service.location.GooglePlacesService;
 import com.classes.Backend.Service.location.LocationResolverService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.net.URL;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,12 +21,14 @@ import java.util.Optional;
 public class BranchServiceImpl implements BranchService {
     private final BranchRepository BRANCH_REPOSITORY;
     private final LocationResolverService LOCATION_RESOLVER_SERVICE;
+    private final GooglePlacesService GOOGLE_PLACES_SERVICE;
 
     // ================ SAVE BRANCH ===================== //
     @Override
     public Branch save(Branch branch) {
         validateGoogleMapsUrl(branch);
         resolveCoordinatesIfMissing(branch);
+        resolveGoogleRating(branch);
         return this.BRANCH_REPOSITORY.save(branch);
     }
 
@@ -63,6 +67,35 @@ public class BranchServiceImpl implements BranchService {
         }
     }
 
+    private void resolveGoogleRating(Branch branch) {
+        String mapsUrl = branch.getGoogleMapsUrl();
+        if (!StringUtils.hasText(mapsUrl)) {
+            return;
+        }
+
+        Optional<GooglePlacesService.GooglePlaceInfo> placeInfo = GOOGLE_PLACES_SERVICE.fetchPlaceInfo(
+                mapsUrl, branch.getLatitude(), branch.getLongitude(), branch.getName());
+
+        if (placeInfo.isEmpty()) {
+            log.warn("Could not fetch Google rating for branch '{}' with maps URL: {}",
+                    branch.getName(), mapsUrl);
+            return;
+        }
+
+        GooglePlacesService.GooglePlaceInfo info = placeInfo.get();
+        branch.setGooglePlaceId(info.placeId());
+        branch.setGoogleRating(info.rating());
+        branch.setGoogleRatingCount(info.ratingCount());
+        branch.setGoogleRatingUpdatedAt(LocalDateTime.now());
+
+        // Prefer Google's own pin when URL-based coordinate resolution failed.
+        if ((branch.getLatitude() == null || branch.getLongitude() == null)
+                && info.latitude() != null && info.longitude() != null) {
+            branch.setLatitude(info.latitude());
+            branch.setLongitude(info.longitude());
+        }
+    }
+
     // ================ SAVE ALL BRANCHES ===================== //
     @Override
     public List<Branch> saveAll(List<Branch> branches) {
@@ -70,6 +103,7 @@ public class BranchServiceImpl implements BranchService {
             branches.forEach(branch -> {
                 validateGoogleMapsUrl(branch);
                 resolveCoordinatesIfMissing(branch);
+                resolveGoogleRating(branch);
             });
         }
         return this.BRANCH_REPOSITORY.saveAll(branches);
@@ -87,18 +121,53 @@ public class BranchServiceImpl implements BranchService {
         String existingMapsUrl = existing.getGoogleMapsUrl();
 
         if (java.util.Objects.equals(newMapsUrl, existingMapsUrl)) {
-            // URL unchanged: keep existing coordinates and ignore anything sent in the payload.
+            // URL unchanged: keep existing coordinates and Google rating; ignore anything sent in the payload.
             branch.setLatitude(existing.getLatitude());
             branch.setLongitude(existing.getLongitude());
+            branch.setGooglePlaceId(existing.getGooglePlaceId());
+            branch.setGoogleRating(existing.getGoogleRating());
+            branch.setGoogleRatingCount(existing.getGoogleRatingCount());
+            branch.setGoogleRatingUpdatedAt(existing.getGoogleRatingUpdatedAt());
+            if (branch.getGoogleRating() == null) {
+                // Backfill: branch predates the Google rating feature (or last fetch failed).
+                resolveGoogleRating(branch);
+            }
         } else {
-            // URL changed: clear coordinates and resolve fresh ones from the new URL.
+            // URL changed: clear coordinates and Google rating, then resolve fresh ones from the new URL.
             branch.setLatitude(null);
             branch.setLongitude(null);
+            branch.setGooglePlaceId(null);
+            branch.setGoogleRating(null);
+            branch.setGoogleRatingCount(null);
+            branch.setGoogleRatingUpdatedAt(null);
             resolveCoordinatesIfMissing(branch);
+            resolveGoogleRating(branch);
         }
 
         branch.setIdentifier(identifier);
         branch.setCreatedAt(existing.getCreatedAt());
+        return this.BRANCH_REPOSITORY.save(branch);
+    }
+
+    // ================ REFRESH GOOGLE RATING ===================== //
+    public Branch refreshGoogleRating(String identifier) {
+        Branch branch = this.BRANCH_REPOSITORY.findById(identifier)
+                .orElseThrow(() -> new RuntimeException("Branch with identifier '" + identifier + "' not found"));
+
+        if (!StringUtils.hasText(branch.getGoogleMapsUrl())) {
+            throw new IllegalArgumentException("Branch has no Google Maps URL.");
+        }
+
+        if (branch.getLatitude() == null || branch.getLongitude() == null) {
+            resolveCoordinatesIfMissing(branch);
+        }
+        resolveGoogleRating(branch);
+
+        if (branch.getGoogleRating() == null) {
+            this.BRANCH_REPOSITORY.save(branch);
+            throw new IllegalStateException("Could not fetch Google rating for this branch's Maps URL.");
+        }
+
         return this.BRANCH_REPOSITORY.save(branch);
     }
 

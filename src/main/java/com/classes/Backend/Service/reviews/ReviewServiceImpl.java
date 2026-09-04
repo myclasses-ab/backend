@@ -2,7 +2,9 @@ package com.classes.Backend.Service.reviews;
 
 import com.classes.Backend.Domain.reviews.Review;
 import com.classes.Backend.Domain.enums.Standard;
+import com.classes.Backend.Domain.institute.Branch;
 import com.classes.Backend.Domain.institute.Institute;
+import com.classes.Backend.Repository.institute.BranchRepository;
 import com.classes.Backend.Repository.institute.InstituteRepository;
 import com.classes.Backend.Repository.reviews.ReviewRepository;
 import com.classes.Backend.dto.reviews.RatingSummaryDto;
@@ -20,6 +22,7 @@ import java.util.Optional;
 public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository REVIEW_REPOSITORY;
     private final InstituteRepository INSTITUTE_REPOSITORY;
+    private final BranchRepository BRANCH_REPOSITORY;
 
     // ================ SAVE REVIEW ===================== //
     @Override
@@ -98,17 +101,41 @@ public class ReviewServiceImpl implements ReviewService {
     // ================ RATING SUMMARY ===================== //
     @Override
     public RatingSummaryDto getRatingSummary(String instituteIdentifier) {
+        BigDecimal googleRating = null;
+        Long googleRatingCount = null;
+        List<Branch> branches = this.BRANCH_REPOSITORY.findByInstituteIdentifier(instituteIdentifier);
+        BigDecimal weightedSum = BigDecimal.ZERO;
+        BigDecimal simpleSum = BigDecimal.ZERO;
+        long totalGoogleCount = 0;
+        long ratedBranches = 0;
+        for (Branch branch : branches) {
+            if (branch.getGoogleRating() == null) {
+                continue;
+            }
+            ratedBranches++;
+            int count = branch.getGoogleRatingCount() != null ? branch.getGoogleRatingCount() : 0;
+            totalGoogleCount += count;
+            weightedSum = weightedSum.add(branch.getGoogleRating().multiply(BigDecimal.valueOf(count)));
+            simpleSum = simpleSum.add(branch.getGoogleRating());
+        }
+        if (ratedBranches > 0) {
+            googleRating = (totalGoogleCount > 0
+                    ? weightedSum.divide(BigDecimal.valueOf(totalGoogleCount), 1, RoundingMode.HALF_UP)
+                    : simpleSum.divide(BigDecimal.valueOf(ratedBranches), 1, RoundingMode.HALF_UP));
+            googleRatingCount = totalGoogleCount;
+        }
+
         List<Review> reviews = this.REVIEW_REPOSITORY.findByInstituteIdentifier(instituteIdentifier);
         int totalReviews = reviews.size();
         if (totalReviews == 0) {
-            return new RatingSummaryDto(BigDecimal.ZERO, 0L);
+            return new RatingSummaryDto(BigDecimal.ZERO, 0L, googleRating, googleRatingCount);
         }
         BigDecimal sum = reviews.stream()
                 .map(Review::getOverallRating)
                 .filter(rating -> rating != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal averageRating = sum.divide(BigDecimal.valueOf(totalReviews), 2, RoundingMode.HALF_UP);
-        return new RatingSummaryDto(averageRating, (long) totalReviews);
+        return new RatingSummaryDto(averageRating, (long) totalReviews, googleRating, googleRatingCount);
     }
 
     // ================ UPDATE INSTITUTE RATING STATS ===================== //
