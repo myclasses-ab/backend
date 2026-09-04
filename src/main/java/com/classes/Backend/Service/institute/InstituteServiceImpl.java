@@ -219,18 +219,22 @@ public class InstituteServiceImpl implements InstituteService {
                             .findMatchingCourses(instituteIdentifiers, query, cityIdentifier, cityName);
                 }
 
-                // In distance mode, fee is a best-effort ranking signal, not an exclusion rule.
-                // Courses inside the range are shown first; if none match, the nearest courses are surfaced.
-                final List<InstituteCourse> rankedCourses;
+                // In distance mode, fee filter applies strictly to matched-branch courses.
+                // If no course in the matched branch satisfies the fee range, the institute is hidden.
+                final List<InstituteCourse> feeMatchedCourses;
                 if (hasDistanceFilter && (minFee != null || maxFee != null)) {
-                    rankedCourses = matchingCourses.stream()
-                            .sorted(java.util.Comparator.comparing(course -> feeDistance(course.getFee(), minFee, maxFee)))
+                    feeMatchedCourses = matchingCourses.stream()
+                            .filter(course -> isFeeInRange(course.getFee(), minFee, maxFee))
                             .toList();
+                    results = new java.util.ArrayList<>(results.stream()
+                            .filter(institute -> feeMatchedCourses.stream()
+                                    .anyMatch(course -> institute.getIdentifier().equals(course.getInstituteIdentifier())))
+                            .toList());
                 } else {
-                    rankedCourses = matchingCourses;
+                    feeMatchedCourses = matchingCourses;
                 }
 
-                Map<String, List<InstituteCourse>> matchingCoursesByInstitute = rankedCourses.stream()
+                Map<String, List<InstituteCourse>> matchingCoursesByInstitute = feeMatchedCourses.stream()
                         .collect(Collectors.groupingBy(InstituteCourse::getInstituteIdentifier));
                 results.forEach(institute -> institute.setMatchingCourses(matchingCoursesByInstitute.get(institute.getIdentifier())));
             }
@@ -338,22 +342,6 @@ public class InstituteServiceImpl implements InstituteService {
             return false;
         }
         return true;
-    }
-
-    private BigDecimal feeDistance(BigDecimal fee, BigDecimal minFee, BigDecimal maxFee) {
-        if (fee == null) {
-            return BigDecimal.valueOf(Long.MAX_VALUE);
-        }
-        if (isFeeInRange(fee, minFee, maxFee)) {
-            return BigDecimal.ZERO;
-        }
-        if (minFee != null && fee.compareTo(minFee) < 0) {
-            return minFee.subtract(fee);
-        }
-        if (maxFee != null && fee.compareTo(maxFee) > 0) {
-            return fee.subtract(maxFee);
-        }
-        return BigDecimal.ZERO;
     }
 
     private BigDecimal haversineKm(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {
